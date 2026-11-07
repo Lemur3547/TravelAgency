@@ -1,21 +1,13 @@
-import { useEffect, useState } from 'react';
+import MainLayout from './MainLayout';
+import ClientsPage from './pages/ClientsPage';
 
 function App() {
-  const [message, setMessage] = useState('Загрузка...');
-
-  useEffect(() => {
-    // Укажите точный порт вашего бэкенда
-    fetch('https://humble-space-broccoli-9769vpppq7r929pg-8000.app.github.dev/health') 
-      .then((res) => res.json())
-      .then((data) => setMessage(data.status))
-      .catch((err) => setMessage('Ошибка подключения к бэкенду'));
-  }, []);
-
   return (
-    <div>
-      <h1>Статус системы:</h1>
-      <p>{message}</p>
-    </div>
+    <>
+      <MainLayout>
+        <ClientsPage />
+      </MainLayout>
+    </>
   );
 }
 
