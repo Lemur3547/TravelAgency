@@ -1,0 +1,20 @@
+# Виртуальное окружение
+venv/
+.venv/
+env/
+ENV/
+
+# Кэш Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+
+# Секреты и настройки (КРИТИЧНО)
+.env
+*.db
+*.sqlite3
+
+# Логи базы данных Alembic (если будете использовать)
+alembic.ini
