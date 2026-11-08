@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Alert, Button, Input, Space, Table, Typography } from 'antd';
 import { ReloadOutlined, SearchOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
@@ -22,6 +23,9 @@ interface ClientPageResponse {
   items: ClientRecord[];
   total: number;
 }
+
+const PAGE_SIZE_OPTIONS = [1, 2, 10, 20, 50, 100];
+const DEFAULT_PAGE_SIZE = 10;
 
 function isClientRecord(value: unknown): value is ClientRecord {
   if (typeof value !== 'object' || value === null) return false;
@@ -60,15 +64,28 @@ function isClientPageResponse(value: unknown): value is ClientPageResponse {
   );
 }
 
+function getPositiveInteger(value: string | null, fallback: number): number {
+  if (!value || !/^[1-9]\d*$/.test(value)) return fallback;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) ? parsed : fallback;
+}
+
 function ClientsPage() {
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [totalClients, setTotalClients] = useState(0);
-  const [searchText, setSearchText] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const currentPage = getPositiveInteger(searchParams.get('page'), 1);
+  const requestedPageSize = getPositiveInteger(
+    searchParams.get('pageSize'),
+    DEFAULT_PAGE_SIZE,
+  );
+  const pageSize = PAGE_SIZE_OPTIONS.includes(requestedPageSize)
+    ? requestedPageSize
+    : DEFAULT_PAGE_SIZE;
+  const searchText = searchParams.get('search') ?? '';
 
   useEffect(() => {
     const controller = new AbortController();
@@ -94,6 +111,14 @@ function ClientsPage() {
         if (!isClientPageResponse(result)) {
           throw new Error('Сервер вернул данные клиентов в неожиданном формате');
         }
+        const lastPage = Math.max(1, Math.ceil(result.total / pageSize));
+        if (currentPage > lastPage) {
+          const nextParams = new URLSearchParams(searchParams);
+          if (lastPage === 1) nextParams.delete('page');
+          else nextParams.set('page', String(lastPage));
+          setSearchParams(nextParams, { replace: true });
+          return;
+        }
         setClients(result.items);
         setTotalClients(result.total);
       } catch (loadError) {
@@ -110,7 +135,7 @@ function ClientsPage() {
 
     void loadClients();
     return () => controller.abort();
-  }, [currentPage, pageSize, reloadKey, searchText]);
+  }, [currentPage, pageSize, reloadKey, searchParams, searchText, setSearchParams]);
 
   const columns: ColumnsType<ClientRecord> = [
     {
@@ -173,7 +198,7 @@ function ClientsPage() {
   ];
 
   return (
-    <Space direction="vertical" size="large" style={{ display: 'flex' }}>
+    <Space orientation="vertical" size="large" style={{ display: 'flex' }}>
       <div>
         <Typography.Title level={2} style={{ margin: 0 }}>
           База клиентов
@@ -189,8 +214,12 @@ function ClientsPage() {
         prefix={<SearchOutlined />}
         value={searchText}
         onChange={(event) => {
-          setSearchText(event.target.value);
-          setCurrentPage(1);
+          const nextParams = new URLSearchParams(searchParams);
+          const search = event.target.value;
+          if (search.trim()) nextParams.set('search', search);
+          else nextParams.delete('search');
+          nextParams.delete('page');
+          setSearchParams(nextParams, { replace: true });
         }}
         allowClear
         style={{ maxWidth: 480 }}
@@ -222,13 +251,25 @@ function ClientsPage() {
           current: currentPage,
           pageSize,
           total: totalClients,
-          pageSizeOptions: [1, 2, 10, 20, 50, 100],
+          pageSizeOptions: PAGE_SIZE_OPTIONS,
           showSizeChanger: true,
           showTotal: (total, range) =>
             `${range[0]}–${range[1]} из ${total} клиентов`,
           onChange: (page, nextPageSize) => {
-            setCurrentPage(nextPageSize === pageSize ? page : 1);
-            setPageSize(nextPageSize);
+            const nextParams = new URLSearchParams(searchParams);
+            if (nextPageSize !== pageSize) {
+              nextParams.delete('page');
+              if (nextPageSize === DEFAULT_PAGE_SIZE) {
+                nextParams.delete('pageSize');
+              } else {
+                nextParams.set('pageSize', String(nextPageSize));
+              }
+            } else if (page === 1) {
+              nextParams.delete('page');
+            } else {
+              nextParams.set('page', String(page));
+            }
+            setSearchParams(nextParams);
           },
         }}
         locale={{ emptyText: error ? 'Не удалось загрузить данные' : 'Клиенты не найдены' }}

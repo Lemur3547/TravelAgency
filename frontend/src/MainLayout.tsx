@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Layout, Menu, theme } from 'antd';
 import {
   UserOutlined,
@@ -12,6 +13,8 @@ const { Header, Sider, Content } = Layout;
 
 function MainLayout({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
   
   // Получаем встроенные токены темы Ant Design (для фонов и скруглений)
   const {
@@ -76,9 +79,12 @@ function MainLayout({ children }: { children: ReactNode }) {
         
         <Menu 
           theme="light" 
-          defaultSelectedKeys={['dashboard']} 
+          selectedKeys={location.pathname === '/clients' ? ['clients'] : []}
           mode="inline" 
           items={menuItems} 
+          onClick={({ key }) => {
+            if (key === 'clients') navigate('/clients');
+          }}
         />
       </Sider>
 
