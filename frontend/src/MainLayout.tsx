@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Layout, Menu, theme } from 'antd';
 import {
   UserOutlined,
@@ -10,7 +10,7 @@ import {
 
 const { Header, Sider, Content } = Layout;
 
-function MainLayout({ children }) {
+function MainLayout({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   
   // Получаем встроенные токены темы Ant Design (для фонов и скруглений)
