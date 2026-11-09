@@ -6,6 +6,7 @@ import {
   CompassOutlined,
   DashboardOutlined,
   FileTextOutlined,
+  GlobalOutlined,
   SettingOutlined,
 } from '@ant-design/icons';
 
@@ -32,6 +33,11 @@ function MainLayout({ children }: { children: ReactNode }) {
       key: 'clients',
       icon: <UserOutlined />,
       label: 'База клиентов',
+    },
+    {
+      key: 'tour-operators',
+      icon: <GlobalOutlined />,
+      label: 'Туроператоры',
     },
     {
       key: 'tours',
@@ -79,11 +85,18 @@ function MainLayout({ children }: { children: ReactNode }) {
         
         <Menu 
           theme="light" 
-          selectedKeys={location.pathname === '/clients' ? ['clients'] : []}
+          selectedKeys={
+            location.pathname === '/clients'
+              ? ['clients']
+              : location.pathname === '/tour-operators'
+                ? ['tour-operators']
+                : []
+          }
           mode="inline" 
           items={menuItems} 
           onClick={({ key }) => {
             if (key === 'clients') navigate('/clients');
+            if (key === 'tour-operators') navigate('/tour-operators');
           }}
         />
       </Sider>

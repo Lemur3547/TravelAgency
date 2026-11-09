@@ -1,6 +1,6 @@
 import datetime
 
-from sqlalchemy import Column, Date, DateTime, Index, Integer, String
+from sqlalchemy import Boolean, Column, Date, DateTime, Index, Integer, String
 
 from .database import Base
 
@@ -44,3 +44,31 @@ class Client(Base):
         default=lambda: datetime.datetime.now(datetime.timezone.utc),
         onupdate=lambda: datetime.datetime.now(datetime.timezone.utc),
     )
+
+class TourOperator(Base):
+    __tablename__ = "tour_operators"
+
+    id = Column(Integer, primary_key=True)
+
+    # Документы: Юридическое лицо
+    name = Column(String(50), nullable=False)
+    legal_name = Column(String(255), nullable=False)
+    inn = Column(String(10), unique=True, nullable=False)
+    address = Column(String(255), nullable=False)
+
+    # Контактные данные
+    phone = Column(String(15), nullable=False)
+    email = Column(String(255), nullable=False)
+    website = Column(String(255), nullable=False)
+
+    # Статус сотруднчества
+    is_active = Column(Boolean, nullable=False, default=True)
+
+    # Таймстампы
+    created_at = Column(
+            DateTime(timezone=True),
+            nullable=False,
+            default=lambda: datetime.datetime.now(datetime.timezone.utc),
+        )
+
+

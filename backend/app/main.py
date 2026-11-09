@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from . import models
 from .database import Base, engine
 from .routers.clients import router as clients_router
+from .routers.tour_operators import router as tour_operators_router
 
 
 @asynccontextmanager
@@ -31,6 +32,7 @@ app.add_middleware(
 )
 
 app.include_router(clients_router)
+app.include_router(tour_operators_router)
 
 
 @app.get("/")

@@ -82,3 +82,78 @@ def update_client(
 def delete_client(db: Session, db_client: models.Client) -> None:
     db.delete(db_client)
     db.commit()
+
+
+def _tour_operator_search_query(db: Session, search: Optional[str]):
+    query = db.query(models.TourOperator)
+
+    if search:
+        words = [word.strip() for word in search.split() if word.strip()]
+        word_filters = []
+
+        for word in words:
+            pattern = f"%{word}%"
+            word_filters.append(
+                or_(
+                    models.TourOperator.name.ilike(pattern),
+                    models.TourOperator.legal_name.ilike(pattern),
+                    models.TourOperator.inn.ilike(pattern),
+                    models.TourOperator.address.ilike(pattern),
+                    models.TourOperator.phone.ilike(pattern),
+                    models.TourOperator.email.ilike(pattern),
+                    models.TourOperator.website.ilike(pattern),
+                )
+            )
+
+        if word_filters:
+            query = query.filter(and_(*word_filters))
+
+    return query
+
+
+def get_tour_operators(
+    db: Session,
+    search: Optional[str] = None,
+) -> List[models.TourOperator]:
+    return (
+        _tour_operator_search_query(db, search)
+        .order_by(models.TourOperator.id)
+        .all()
+    )
+
+
+def get_tour_operator(db: Session, tour_operator_id: int) -> Optional[models.TourOperator]:
+    return (
+        db.query(models.TourOperator)
+        .filter(models.TourOperator.id == tour_operator_id)
+        .first()
+    )
+
+
+def create_tour_operator(
+    db: Session,
+    tour_operator: schemas.TourOperatorCreate,
+) -> models.TourOperator:
+    db_tour_operator = models.TourOperator(**tour_operator.model_dump())
+    db.add(db_tour_operator)
+    db.commit()
+    db.refresh(db_tour_operator)
+    return db_tour_operator
+
+
+def update_tour_operator(
+    db: Session,
+    db_tour_operator: models.TourOperator,
+    tour_operator_update: schemas.TourOperatorUpdate,
+) -> models.TourOperator:
+    update_data = tour_operator_update.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_tour_operator, field, value)
+    db.commit()
+    db.refresh(db_tour_operator)
+    return db_tour_operator
+
+
+def delete_tour_operator(db: Session, db_tour_operator: models.TourOperator) -> None:
+    db.delete(db_tour_operator)
+    db.commit()
