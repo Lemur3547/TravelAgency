@@ -1,17 +1,24 @@
 from typing import List, Optional
 
-from sqlalchemy import func, or_
+from sqlalchemy import func, and_, or_
 from sqlalchemy.orm import Session
 
 from . import models, schemas
 
-
 def _client_search_query(db: Session, search: Optional[str]):
     query = db.query(models.Client)
+    
     if search:
-        pattern = f"%{search.strip()}%"
-        query = query.filter(
-            or_(
+        # 1. Разбираем строку на отдельные слова и убираем лишние пробелы
+        words = [word.strip() for word in search.split() if word.strip()]
+        
+        # Список условий для каждого слова
+        word_filters = []
+        
+        for word in words:
+            pattern = f"%{word}%"
+            # Для КАЖДОГО слова создаем блок OR (слово должно быть хоть в одном поле)
+            word_condition = or_(
                 models.Client.last_name.ilike(pattern),
                 models.Client.first_name.ilike(pattern),
                 models.Client.father_name.ilike(pattern),
@@ -20,9 +27,13 @@ def _client_search_query(db: Session, search: Optional[str]):
                 models.Client.passport_number.ilike(pattern),
                 models.Client.foreign_passport_number.ilike(pattern),
             )
-        )
+            word_filters.append(word_condition)
+        
+        # 2. Объединяем условия через AND (все слова должны совпасть)
+        if word_filters:
+            query = query.filter(and_(*word_filters))
+            
     return query
-
 
 def get_clients(
     db: Session,
