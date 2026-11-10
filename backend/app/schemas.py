@@ -1,3 +1,4 @@
+import re
 from datetime import date, datetime
 from typing import Optional
 
@@ -14,6 +15,28 @@ def _validate_legal_entity_inn(value: str) -> str:
         raise ValueError("Указан некорректный ИНН")
 
     return value
+
+
+def _normalize_russian_phone(value: object) -> object:
+    if not isinstance(value, str) or not re.fullmatch(r"\+?[\d\s()-]+", value):
+        raise ValueError("Введите корректный номер телефона")
+    if "+" in value and not value.lstrip().startswith("+"):
+        raise ValueError("Введите корректный номер телефона")
+
+    digits = re.sub(r"\D", "", value)
+    if value.lstrip().startswith("+") and not digits.startswith("7"):
+        raise ValueError("Для международного формата используйте код +7")
+    if len(digits) == 10:
+        national_number = digits
+    elif len(digits) == 11 and digits[0] in {"7", "8"}:
+        national_number = digits[1:]
+    else:
+        raise ValueError("Номер должен содержать код страны и 10 цифр")
+
+    if national_number[0] not in "3456789":
+        raise ValueError("Введите корректный номер телефона")
+
+    return f"+7{national_number}"
 
 
 class ClientBase(BaseModel):
@@ -77,7 +100,7 @@ class TourOperatorBase(BaseModel):
     legal_name: str = Field(..., min_length=1, max_length=255)
     inn: str = Field(..., min_length=1, max_length=10)
     address: str = Field(..., min_length=1, max_length=255)
-    phone: str = Field(..., min_length=1, max_length=15)
+    phone: str = Field(..., min_length=12, max_length=12, pattern=r"^\+7[3-9]\d{9}$")
     email: EmailStr = Field(..., max_length=255)
     website: str = Field(..., min_length=1, max_length=255)
     is_active: bool = True
@@ -86,6 +109,11 @@ class TourOperatorBase(BaseModel):
     @classmethod
     def validate_inn(cls, value: str) -> str:
         return _validate_legal_entity_inn(value)
+
+    @field_validator("phone", mode="before")
+    @classmethod
+    def normalize_phone(cls, value: object) -> object:
+        return _normalize_russian_phone(value)
 
 
 class TourOperatorCreate(TourOperatorBase):
@@ -97,7 +125,12 @@ class TourOperatorUpdate(BaseModel):
     legal_name: Optional[str] = Field(None, min_length=1, max_length=255)
     inn: Optional[str] = Field(None, min_length=1, max_length=10)
     address: Optional[str] = Field(None, min_length=1, max_length=255)
-    phone: Optional[str] = Field(None, min_length=1, max_length=15)
+    phone: Optional[str] = Field(
+        None,
+        min_length=12,
+        max_length=12,
+        pattern=r"^\+7[3-9]\d{9}$",
+    )
     email: Optional[EmailStr] = Field(None, max_length=255)
     website: Optional[str] = Field(None, min_length=1, max_length=255)
     is_active: Optional[bool] = None
@@ -108,6 +141,13 @@ class TourOperatorUpdate(BaseModel):
         if value is None:
             return None
         return _validate_legal_entity_inn(value)
+
+    @field_validator("phone", mode="before")
+    @classmethod
+    def normalize_phone(cls, value: object) -> object:
+        if value is None:
+            return None
+        return _normalize_russian_phone(value)
 
 
 class TourOperatorResponse(BaseModel):

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Alert,
@@ -14,6 +14,7 @@ import {
   Typography,
   message,
 } from 'antd';
+import type { InputRef } from 'antd';
 import {
   DeleteOutlined,
   EditOutlined,
@@ -45,6 +46,104 @@ interface TourOperatorFormValues {
   email: string;
   website: string;
   is_active: boolean;
+}
+
+function formatRussianNationalNumber(value: string): string {
+  const digits = value.slice(0, 10);
+  if (!digits) return '';
+
+  const area = digits.slice(0, 3);
+  const firstPart = digits.slice(3, 6);
+  const secondPart = digits.slice(6, 8);
+  const thirdPart = digits.slice(8, 10);
+  let formatted = `(${area}`;
+  if (area.length === 3) formatted += ')';
+  if (firstPart) formatted += ` ${firstPart}`;
+  if (secondPart) formatted += `-${secondPart}`;
+  if (thirdPart) formatted += `-${thirdPart}`;
+  return formatted;
+}
+
+function RussianPhoneInput({
+  value = '',
+  onChange,
+}: {
+  value?: string;
+  onChange?: (value: string) => void;
+}) {
+  const inputRef = useRef<InputRef>(null);
+  const caretDigitCount = useRef<number | null>(null);
+
+  useLayoutEffect(() => {
+    if (caretDigitCount.current === null) return;
+    const input = inputRef.current?.input;
+    if (!input) return;
+
+    let position = 0;
+    let digitsSeen = 0;
+    while (position < input.value.length && digitsSeen < caretDigitCount.current) {
+      if (/\d/.test(input.value[position])) digitsSeen += 1;
+      position += 1;
+    }
+    input.setSelectionRange(position, position);
+    caretDigitCount.current = null;
+  }, [value]);
+
+  return (
+    <Input
+      ref={inputRef}
+      type="text"
+      inputMode="tel"
+      placeholder="+7 (___) ___-__-__"
+      value={formatRussianPhone(value)}
+      onChange={(event) => {
+        const cursor = event.target.selectionStart ?? event.target.value.length;
+        const textBeforeCursor = event.target.value.slice(0, cursor);
+        const digitsBeforeCursor = textBeforeCursor.replace(/\D/g, '');
+        const startsWithPrefix =
+          event.target.value.trimStart().startsWith('+7') ||
+          /^[78]/.test(event.target.value.trimStart());
+        const nationalDigitsBeforeCursor = startsWithPrefix
+          ? Math.max(0, digitsBeforeCursor.length - 1)
+          : digitsBeforeCursor.length;
+        const formattedValue = formatRussianPhone(event.target.value);
+        caretDigitCount.current = 1 + Math.min(nationalDigitsBeforeCursor, 10);
+        onChange?.(formattedValue);
+      }}
+    />
+  );
+}
+
+function formatRussianPhone(value: string): string {
+  const trimmedValue = value.trimStart();
+  const digits = value.replace(/\D/g, '').slice(0, 11);
+  if (!digits) return trimmedValue.startsWith('+') ? '+' : '';
+
+  if (trimmedValue.startsWith('+')) {
+    if (digits[0] === '7') {
+      return `+7 ${formatRussianNationalNumber(digits.slice(1, 11))}`;
+    }
+    return `+7 ${formatRussianNationalNumber(digits.slice(0, 10))}`;
+  }
+
+  if (digits[0] === '8') {
+    return `8 ${formatRussianNationalNumber(digits.slice(1, 11))}`;
+  }
+  if (digits[0] === '7') {
+    return `+7 ${formatRussianNationalNumber(digits.slice(1, 11))}`;
+  }
+  return `+7 ${formatRussianNationalNumber(digits.slice(0, 10))}`;
+}
+
+function isValidRussianPhone(value: string): boolean {
+  const digits = value.replace(/\D/g, '');
+  const isNationalNumberValid = (number: string) => /^[3-9]\d{9}$/.test(number);
+
+  if (digits.length !== 11) return false;
+  if (value.trimStart().startsWith('8')) {
+    return digits.startsWith('8') && isNationalNumberValid(digits.slice(1));
+  }
+  return digits.startsWith('7') && isNationalNumberValid(digits.slice(1));
 }
 
 function isTourOperatorRecord(value: unknown): value is TourOperatorRecord {
@@ -144,7 +243,9 @@ function TourOperatorsPage() {
 
   function openEditModal(operator: TourOperatorRecord) {
     setSelectedOperator(operator);
-    form.setFieldsValue(operator);
+    form.setFieldsValue({
+      ...operator,
+    });
     setModalOpen(true);
   }
 
@@ -231,7 +332,8 @@ function TourOperatorsPage() {
       title: 'Телефон',
       dataIndex: 'phone',
       key: 'phone',
-      width: 140,
+      width: 170,
+      render: (phone: string) => formatRussianPhone(phone),
     },
     {
       title: 'Электронная почта',
@@ -401,9 +503,19 @@ function TourOperatorsPage() {
           <Form.Item
             name="phone"
             label="Телефон"
-            rules={[{ required: true, whitespace: true, message: 'Укажите телефон' }]}
+            rules={[
+              { required: true, message: 'Укажите телефон' },
+              {
+                validator: (_, value: string | undefined) =>
+                  !value || isValidRussianPhone(value)
+                    ? Promise.resolve()
+                    : Promise.reject(
+                        new Error('Введите корректный номер телефона'),
+                      ),
+              },
+            ]}
           >
-            <Input maxLength={15} />
+            <RussianPhoneInput />
           </Form.Item>
           <Form.Item
             name="email"
