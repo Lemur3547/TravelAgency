@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Alert, Button, Input, Space, Table, Typography } from 'antd';
 import { ReloadOutlined, SearchOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import { formatPhone } from '../utils/phone';
 
 interface ClientRecord {
   id: number;
@@ -157,8 +158,8 @@ function ClientsPage() {
       title: 'Телефон',
       dataIndex: 'phone',
       key: 'phone',
-      width: 140,
-      ellipsis: true,
+      width: 180,
+      render: formatPhone,
     },
     {
       title: 'Электронная почта',

@@ -117,7 +117,7 @@ def get_tour_operators(
 ) -> List[models.TourOperator]:
     return (
         _tour_operator_search_query(db, search)
-        .order_by(models.TourOperator.id)
+        .order_by(models.TourOperator.is_active.desc(), models.TourOperator.id)
         .all()
     )
 
