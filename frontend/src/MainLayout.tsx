@@ -90,13 +90,16 @@ function MainLayout({ children }: { children: ReactNode }) {
               ? ['clients']
               : location.pathname === '/tour-operators'
                 ? ['tour-operators']
-                : []
+                  : location.pathname === '/tours'
+                    ? ['tours']
+                  : []
           }
           mode="inline"
           items={menuItems}
           onClick={({ key }) => {
             if (key === 'clients') navigate('/clients');
             if (key === 'tour-operators') navigate('/tour-operators');
+            if (key === 'tours') navigate('/tours');
           }}
         />
       </Sider>

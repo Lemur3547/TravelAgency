@@ -30,3 +30,16 @@ The destinations directory stores unique country-city pairs:
   `country_slug` and `city_slug`.
 
 There are no update or delete operations for destinations.
+
+## Tours API
+
+Run `alembic upgrade head` from `backend/` to create the tours table. The
+`/api/tours/` endpoints provide list, detail, create, update and delete
+operations. Tours reference a tour operator and a destination, and meal types
+are stored as a list of selected values.
+
+`commission_percent` is the tour operator commission percentage of the client
+price. The API calculates and persists `agency_price` (client price minus the
+commission) and `agency_commission` (the commission amount) on create and update;
+these calculated values are returned by the API and displayed in the tour form
+and list.

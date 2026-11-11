@@ -22,6 +22,7 @@ if DATABASE_URL.startswith("sqlite"):
     @event.listens_for(engine, "connect")
     def sqlite_tune_connection(dbapi_connection, connection_record):
         if isinstance(dbapi_connection, sqlite3.Connection):
+            dbapi_connection.execute("PRAGMA foreign_keys=ON")
             # Исправляем функцию LOWER для поддержки кириллицы
             dbapi_connection.create_function("lower", 1, lambda s: s.lower() if s else s)
             

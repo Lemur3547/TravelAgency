@@ -1,4 +1,5 @@
 from typing import List, Optional
+from decimal import Decimal, ROUND_HALF_UP
 
 from sqlalchemy import func, and_, or_
 from sqlalchemy.orm import Session
@@ -200,3 +201,55 @@ def create_destination(
     db.commit()
     db.refresh(db_destination)
     return db_destination
+
+
+def _tour_prices(client_price: Decimal, commission_percent: Decimal) -> tuple[Decimal, Decimal]:
+    commission = (client_price * commission_percent / Decimal("100")).quantize(
+        Decimal("0.01"), rounding=ROUND_HALF_UP
+    )
+    return (client_price - commission).quantize(Decimal("0.01")), commission
+
+
+def get_tours(db: Session) -> List[models.Tour]:
+    return db.query(models.Tour).order_by(models.Tour.start_date, models.Tour.id).all()
+
+
+def get_tour(db: Session, tour_id: int) -> Optional[models.Tour]:
+    return db.query(models.Tour).filter(models.Tour.id == tour_id).first()
+
+
+def create_tour(db: Session, tour: schemas.TourCreate) -> models.Tour:
+    data = tour.model_dump()
+    data["agency_price"], data["agency_commission"] = _tour_prices(
+        data["client_price"], data["commission_percent"]
+    )
+    db_tour = models.Tour(**data)
+    db.add(db_tour)
+    db.commit()
+    db.refresh(db_tour)
+    return db_tour
+
+
+def update_tour(
+    db: Session,
+    db_tour: models.Tour,
+    tour_update: schemas.TourUpdate,
+) -> models.Tour:
+    update_data = tour_update.model_dump(exclude_unset=True)
+    client_price = update_data.get("client_price", db_tour.client_price)
+    commission_percent = update_data.get(
+        "commission_percent", db_tour.commission_percent
+    )
+    update_data["agency_price"], update_data["agency_commission"] = _tour_prices(
+        client_price, commission_percent
+    )
+    for field, value in update_data.items():
+        setattr(db_tour, field, value)
+    db.commit()
+    db.refresh(db_tour)
+    return db_tour
+
+
+def delete_tour(db: Session, db_tour: models.Tour) -> None:
+    db.delete(db_tour)
+    db.commit()

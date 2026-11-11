@@ -5,9 +5,13 @@ from sqlalchemy import (
     Column,
     Date,
     DateTime,
+    ForeignKey,
     Index,
     Integer,
+    JSON,
+    Numeric,
     String,
+    Text,
     UniqueConstraint,
 )
 
@@ -96,3 +100,29 @@ class Destination(Base):
     city = Column(String(100), nullable=False)
     country_slug = Column(String(100), nullable=False)
     city_slug = Column(String(100), nullable=False)
+
+
+class Tour(Base):
+    __tablename__ = "tours"
+
+    id = Column(Integer, primary_key=True)
+    operator_id = Column(
+        Integer, ForeignKey("tour_operators.id"), nullable=False, index=True
+    )
+    title = Column(String(255), nullable=False)
+    destination_id = Column(
+        Integer, ForeignKey("destinations.id"), nullable=False, index=True
+    )
+    departure_city = Column(String(100), nullable=False)
+    hotel_name = Column(String(255), nullable=False)
+    room_type = Column(String(100), nullable=False)
+    meal_types = Column(JSON, nullable=False)
+    start_date = Column(Date, nullable=False)
+    nights = Column(Integer, nullable=False)
+    tourists = Column(Integer, nullable=False)
+    description = Column(Text, nullable=False, default="")
+    is_available = Column(Boolean, nullable=False, default=True)
+    client_price = Column(Numeric(12, 2), nullable=False)
+    commission_percent = Column(Numeric(5, 2), nullable=False)
+    agency_price = Column(Numeric(12, 2), nullable=False)
+    agency_commission = Column(Numeric(12, 2), nullable=False)

@@ -1,5 +1,7 @@
 import re
 from datetime import date, datetime
+from decimal import Decimal
+from typing import Literal
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
@@ -282,3 +284,62 @@ class CountryResponse(BaseModel):
 class CityResponse(BaseModel):
     city: str
     city_slug: str
+
+
+MealType = Literal["Завтрак", "Полупансион", "Полный пансион", "Все включено", "Без питания"]
+
+
+class TourBase(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    operator_id: int = Field(..., gt=0)
+    title: str = Field(..., min_length=1, max_length=255)
+    destination_id: int = Field(..., gt=0)
+    departure_city: str = Field(..., min_length=1, max_length=100)
+    hotel_name: str = Field(..., min_length=1, max_length=255)
+    room_type: str = Field(..., min_length=1, max_length=100)
+    meal_types: list[MealType] = Field(..., min_length=1, max_length=1)
+    start_date: date
+    nights: int = Field(..., ge=1, le=365)
+    tourists: int = Field(..., ge=1, le=100)
+    description: str = Field(default="", max_length=5000)
+    is_available: bool = True
+    client_price: Decimal = Field(..., gt=0, max_digits=12, decimal_places=2)
+    commission_percent: Decimal = Field(
+        ..., ge=0, le=100, max_digits=5, decimal_places=2
+    )
+
+
+class TourCreate(TourBase):
+    pass
+
+
+class TourUpdate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    operator_id: Optional[int] = Field(None, gt=0)
+    title: Optional[str] = Field(None, min_length=1, max_length=255)
+    destination_id: Optional[int] = Field(None, gt=0)
+    departure_city: Optional[str] = Field(None, min_length=1, max_length=100)
+    hotel_name: Optional[str] = Field(None, min_length=1, max_length=255)
+    room_type: Optional[str] = Field(None, min_length=1, max_length=100)
+    meal_types: Optional[list[MealType]] = Field(None, min_length=1, max_length=1)
+    start_date: Optional[date] = None
+    nights: Optional[int] = Field(None, ge=1, le=365)
+    tourists: Optional[int] = Field(None, ge=1, le=100)
+    description: Optional[str] = Field(None, max_length=5000)
+    is_available: Optional[bool] = None
+    client_price: Optional[Decimal] = Field(
+        None, gt=0, max_digits=12, decimal_places=2
+    )
+    commission_percent: Optional[Decimal] = Field(
+        None, ge=0, le=100, max_digits=5, decimal_places=2
+    )
+
+
+class TourResponse(TourBase):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    agency_price: Decimal
+    agency_commission: Decimal

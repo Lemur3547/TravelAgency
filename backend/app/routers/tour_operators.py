@@ -91,4 +91,11 @@ def delete_tour_operator(tour_operator_id: int, db: Session = Depends(get_db)):
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Туроператор не найден",
         )
-    crud.delete_tour_operator(db, db_tour_operator)
+    try:
+        crud.delete_tour_operator(db, db_tour_operator)
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Нельзя удалить туроператора, пока с ним связаны туры",
+        ) from exc
