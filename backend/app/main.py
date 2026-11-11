@@ -1,21 +1,11 @@
-from contextlib import asynccontextmanager
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from . import models
-from .database import Base, engine
 from .routers.clients import router as clients_router
 from .routers.tour_operators import router as tour_operators_router
 
 
-@asynccontextmanager
-async def lifespan(_: FastAPI):
-    Base.metadata.create_all(bind=engine)
-    yield
-
-
-app = FastAPI(title="TravelAgency API", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="TravelAgency API", version="0.1.0")
 
 origins = [
     "http://localhost:5173",  # Адрес вашего React-приложения на Vite

@@ -15,6 +15,3 @@ __pycache__/
 .env
 *.db
 *.sqlite3
-
-# Логи базы данных Alembic (если будете использовать)
-alembic.ini

@@ -10,12 +10,6 @@ router = APIRouter(prefix="/api/clients", tags=["Clients"])
 _REQUIRED_FIELDS = {
     "last_name",
     "first_name",
-    "passport_number",
-    "birth_date",
-    "foreign_passport_number",
-    "latin_first_name",
-    "latin_last_name",
-    "foreign_passport_expire_date",
     "phone",
     "email",
 }

@@ -39,18 +39,76 @@ def _normalize_russian_phone(value: object) -> object:
     return f"+7{national_number}"
 
 
+def _validate_name(value: Optional[str], alphabet: str) -> Optional[str]:
+    if value is None:
+        return None
+    if alphabet == "russian":
+        pattern = r"^[А-Яа-яЁё]+(?:[- ][А-Яа-яЁё]+)*$"
+    else:
+        pattern = r"^[A-Za-z]+(?:[- ][A-Za-z]+)*$"
+    if not re.fullmatch(pattern, value):
+        language = "русские" if alphabet == "russian" else "латинские"
+        raise ValueError(f"Используйте только {language} буквы")
+    return value
+
+
+def _normalize_passport_number(value: object, expected_length: int) -> Optional[str]:
+    if value is None:
+        return None
+    if not isinstance(value, str) or not re.fullmatch(r"[0-9 ]+", value):
+        raise ValueError("Номер паспорта должен состоять из цифр")
+    series_length = 4 if expected_length == 10 else 2
+    formatted_pattern = rf"[0-9]{{{series_length}}} [0-9]{{{expected_length - series_length}}}"
+    if " " in value and not re.fullmatch(formatted_pattern, value):
+        raise ValueError("Номер паспорта указан в неверном формате")
+    digits = value.replace(" ", "")
+    if len(digits) != expected_length:
+        raise ValueError(f"Номер паспорта должен содержать {expected_length} цифр")
+    return digits
+
+
 class ClientBase(BaseModel):
     last_name: str = Field(..., min_length=1, max_length=50)
     first_name: str = Field(..., min_length=1, max_length=50)
     father_name: Optional[str] = Field(None, max_length=50)
-    passport_number: str = Field(..., min_length=1, max_length=10)
-    birth_date: date
-    foreign_passport_number: str = Field(..., min_length=1, max_length=9)
-    latin_first_name: str = Field(..., min_length=1, max_length=50)
-    latin_last_name: str = Field(..., min_length=1, max_length=50)
-    foreign_passport_expire_date: date
+    passport_number: Optional[str] = Field(None, max_length=11)
+    birth_date: Optional[date] = None
+    foreign_passport_number: Optional[str] = Field(None, max_length=10)
+    latin_first_name: Optional[str] = Field(None, min_length=1, max_length=50)
+    latin_last_name: Optional[str] = Field(None, min_length=1, max_length=50)
+    foreign_passport_expire_date: Optional[date] = None
     phone: str = Field(..., min_length=1, max_length=15)
     email: EmailStr = Field(..., max_length=255)
+
+    @field_validator("last_name", "first_name")
+    @classmethod
+    def validate_russian_name(cls, value: str) -> str:
+        return _validate_name(value, "russian") or value
+
+    @field_validator("father_name")
+    @classmethod
+    def validate_russian_father_name(cls, value: Optional[str]) -> Optional[str]:
+        return _validate_name(value, "russian")
+
+    @field_validator("latin_first_name", "latin_last_name")
+    @classmethod
+    def validate_latin_name(cls, value: Optional[str]) -> Optional[str]:
+        return _validate_name(value, "latin")
+
+    @field_validator("passport_number", mode="before")
+    @classmethod
+    def normalize_passport_number(cls, value: object) -> Optional[str]:
+        return _normalize_passport_number(value, 10)
+
+    @field_validator("foreign_passport_number", mode="before")
+    @classmethod
+    def normalize_foreign_passport_number(cls, value: object) -> Optional[str]:
+        return _normalize_passport_number(value, 9)
+
+    @field_validator("phone", mode="before")
+    @classmethod
+    def normalize_phone(cls, value: object) -> object:
+        return _normalize_russian_phone(value)
 
 
 class ClientCreate(ClientBase):
@@ -61,14 +119,46 @@ class ClientUpdate(BaseModel):
     last_name: Optional[str] = Field(None, min_length=1, max_length=50)
     first_name: Optional[str] = Field(None, min_length=1, max_length=50)
     father_name: Optional[str] = Field(None, max_length=50)
-    passport_number: Optional[str] = Field(None, min_length=1, max_length=10)
+    passport_number: Optional[str] = Field(None, max_length=11)
     birth_date: Optional[date] = None
-    foreign_passport_number: Optional[str] = Field(None, min_length=1, max_length=9)
+    foreign_passport_number: Optional[str] = Field(None, max_length=10)
     latin_first_name: Optional[str] = Field(None, min_length=1, max_length=50)
     latin_last_name: Optional[str] = Field(None, min_length=1, max_length=50)
     foreign_passport_expire_date: Optional[date] = None
     phone: Optional[str] = Field(None, min_length=1, max_length=15)
     email: Optional[EmailStr] = Field(None, max_length=255)
+
+    @field_validator("last_name", "first_name")
+    @classmethod
+    def validate_russian_name(cls, value: Optional[str]) -> Optional[str]:
+        return _validate_name(value, "russian")
+
+    @field_validator("father_name")
+    @classmethod
+    def validate_russian_father_name(cls, value: Optional[str]) -> Optional[str]:
+        return _validate_name(value, "russian")
+
+    @field_validator("latin_first_name", "latin_last_name")
+    @classmethod
+    def validate_latin_name(cls, value: Optional[str]) -> Optional[str]:
+        return _validate_name(value, "latin")
+
+    @field_validator("passport_number", mode="before")
+    @classmethod
+    def normalize_passport_number(cls, value: object) -> Optional[str]:
+        return _normalize_passport_number(value, 10)
+
+    @field_validator("foreign_passport_number", mode="before")
+    @classmethod
+    def normalize_foreign_passport_number(cls, value: object) -> Optional[str]:
+        return _normalize_passport_number(value, 9)
+
+    @field_validator("phone", mode="before")
+    @classmethod
+    def normalize_phone(cls, value: object) -> object:
+        if value is None:
+            return None
+        return _normalize_russian_phone(value)
 
 
 class ClientResponse(BaseModel):
@@ -78,12 +168,12 @@ class ClientResponse(BaseModel):
     last_name: str
     first_name: str
     father_name: Optional[str]
-    passport_number: str
-    birth_date: date
-    foreign_passport_number: str
-    latin_first_name: str
-    latin_last_name: str
-    foreign_passport_expire_date: date
+    passport_number: Optional[str]
+    birth_date: Optional[date]
+    foreign_passport_number: Optional[str]
+    latin_first_name: Optional[str]
+    latin_last_name: Optional[str]
+    foreign_passport_expire_date: Optional[date]
     phone: str
     email: EmailStr
     created_at: datetime
