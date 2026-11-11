@@ -157,3 +157,46 @@ def update_tour_operator(
 def delete_tour_operator(db: Session, db_tour_operator: models.TourOperator) -> None:
     db.delete(db_tour_operator)
     db.commit()
+
+
+def get_destinations(db: Session) -> List[models.Destination]:
+    return (
+        db.query(models.Destination)
+        .order_by(models.Destination.country, models.Destination.city, models.Destination.id)
+        .all()
+    )
+
+
+def get_countries(db: Session) -> list[dict[str, str]]:
+    rows = (
+        db.query(models.Destination.country, models.Destination.country_slug)
+        .distinct()
+        .order_by(models.Destination.country, models.Destination.country_slug)
+        .all()
+    )
+    return [{"country": country, "country_slug": slug} for country, slug in rows]
+
+
+def get_cities_by_country_slug(
+    db: Session,
+    country_slug: str,
+) -> list[dict[str, str]]:
+    rows = (
+        db.query(models.Destination.city, models.Destination.city_slug)
+        .filter(models.Destination.country_slug == country_slug)
+        .distinct()
+        .order_by(models.Destination.city)
+        .all()
+    )
+    return [{"city": city, "city_slug": slug} for city, slug in rows]
+
+
+def create_destination(
+    db: Session,
+    destination: schemas.DestinationCreate,
+) -> models.Destination:
+    db_destination = models.Destination(**destination.model_dump())
+    db.add(db_destination)
+    db.commit()
+    db.refresh(db_destination)
+    return db_destination

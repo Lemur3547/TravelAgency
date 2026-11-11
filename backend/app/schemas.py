@@ -253,3 +253,32 @@ class TourOperatorResponse(BaseModel):
     website: str
     is_active: bool
     created_at: datetime
+
+
+class DestinationCreate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    country: str = Field(..., min_length=1, max_length=100)
+    city: str = Field(..., min_length=1, max_length=100)
+    country_slug: str = Field(..., min_length=1, max_length=100)
+    city_slug: str = Field(..., min_length=1, max_length=100)
+
+
+class DestinationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    country: str
+    city: str
+    country_slug: str
+    city_slug: str
+
+
+class CountryResponse(BaseModel):
+    country: str
+    country_slug: str
+
+
+class CityResponse(BaseModel):
+    city: str
+    city_slug: str

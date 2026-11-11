@@ -1,6 +1,15 @@
 import datetime
 
-from sqlalchemy import Boolean, Column, Date, DateTime, Index, Integer, String
+from sqlalchemy import (
+    Boolean,
+    Column,
+    Date,
+    DateTime,
+    Index,
+    Integer,
+    String,
+    UniqueConstraint,
+)
 
 from .database import Base
 
@@ -70,3 +79,20 @@ class TourOperator(Base):
             default=lambda: datetime.datetime.now(datetime.timezone.utc),
         )
 
+
+class Destination(Base):
+    __tablename__ = "destinations"
+    __table_args__ = (
+        UniqueConstraint("country", "city", name="uq_destinations_country_city"),
+        UniqueConstraint(
+            "country_slug",
+            "city_slug",
+            name="uq_destinations_country_slug_city_slug",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True)
+    country = Column(String(100), nullable=False)
+    city = Column(String(100), nullable=False)
+    country_slug = Column(String(100), nullable=False)
+    city_slug = Column(String(100), nullable=False)
