@@ -5,6 +5,7 @@ import {
   Button,
   Collapse,
   Col,
+  DatePicker,
   Form,
   Input,
   Modal,
@@ -16,6 +17,7 @@ import {
   message,
 } from 'antd';
 import type { InputRef } from 'antd';
+import dayjs from 'dayjs';
 import {
   DeleteOutlined,
   EditOutlined,
@@ -89,6 +91,24 @@ function isClientRecord(value: unknown): value is ClientRecord {
 function formatDate(value: string): string {
   const [year, month, day] = value.split('-');
   return year && month && day ? `${day}.${month}.${year}` : value;
+}
+
+function ClientDatePicker({
+  value,
+  onChange,
+}: {
+  value?: string | null;
+  onChange?: (value: string | null) => void;
+}) {
+  return (
+    <DatePicker
+      format="DD.MM.YYYY"
+      placeholder="Выберите дату"
+      style={{ width: '100%' }}
+      value={value ? dayjs(value) : null}
+      onChange={(date) => onChange?.(date?.format('YYYY-MM-DD') ?? null)}
+    />
+  );
 }
 
 function formatDocumentNumber(
@@ -204,6 +224,7 @@ function ClientsPage() {
   const [messageApi, contextHolder] = message.useMessage();
   const [modalOpen, setModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [expandedDocumentPanels, setExpandedDocumentPanels] = useState<string[]>([]);
   const [selectedClient, setSelectedClient] = useState<ClientRecord | null>(null);
   const currentPage = getPositiveInteger(searchParams.get('page'), 1);
   const requestedPageSize = getPositiveInteger(
@@ -217,12 +238,14 @@ function ClientsPage() {
 
   function openCreateModal() {
     setSelectedClient(null);
+    setExpandedDocumentPanels([]);
     form.resetFields();
     setModalOpen(true);
   }
 
   function openEditModal(client: ClientRecord) {
     setSelectedClient(client);
+    setExpandedDocumentPanels([]);
     form.setFieldsValue({
       ...client,
       father_name: client.father_name ?? undefined,
@@ -300,6 +323,30 @@ function ClientsPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  function revealInvalidDocumentFields({
+    errorFields,
+  }: {
+    errorFields: Array<{ name: (string | number)[] }>;
+  }) {
+    const invalidFields = new Set(errorFields.map(({ name }) => name[0]));
+    const panelsToOpen = new Set(expandedDocumentPanels);
+
+    if (['passport_number', 'birth_date'].some((field) => invalidFields.has(field))) {
+      panelsToOpen.add('passport');
+    }
+    if (
+      [
+        'latin_first_name',
+        'latin_last_name',
+        'foreign_passport_number',
+        'foreign_passport_expire_date',
+      ].some((field) => invalidFields.has(field))
+    ) {
+      panelsToOpen.add('foreign-passport');
+    }
+    setExpandedDocumentPanels([...panelsToOpen]);
   }
 
   async function deleteClient(client: ClientRecord) {
@@ -561,6 +608,7 @@ function ClientsPage() {
           layout="vertical"
           validateTrigger="onBlur"
           onFinish={saveClient}
+          onFinishFailed={revealInvalidDocumentFields}
           style={{ width: '100%' }}
         >
           <Typography.Title level={5}>Основная информация</Typography.Title>
@@ -644,7 +692,12 @@ function ClientsPage() {
 
           <div style={{ width: 'calc(100% + 48px)', marginInline: -24 }}>
             <Collapse
-              defaultActiveKey={[]}
+              activeKey={expandedDocumentPanels}
+              onChange={(keys) =>
+                setExpandedDocumentPanels(
+                  Array.isArray(keys) ? keys.map(String) : [String(keys)],
+                )
+              }
               style={{ width: '100%', boxSizing: 'border-box', borderRadius: '0px' }}
               items={[
               {
@@ -674,7 +727,7 @@ function ClientsPage() {
                     </Col>
                     <Col span={12}>
                       <Form.Item name="birth_date" label="Дата рождения">
-                        <Input type="date" />
+                        <ClientDatePicker />
                       </Form.Item>
                     </Col>
                   </Row>
@@ -687,8 +740,8 @@ function ClientsPage() {
                   <Row gutter={16}>
                     <Col span={12}>
                       <Form.Item
-                        name="latin_first_name"
-                        label="Имя латиницей"
+                        name="latin_last_name"
+                        label="Фамилия латиницей"
                         rules={[
                           {
                             pattern: /^[A-Za-z]+(?:[- ][A-Za-z]+)*$/,
@@ -701,8 +754,8 @@ function ClientsPage() {
                     </Col>
                     <Col span={12}>
                       <Form.Item
-                        name="latin_last_name"
-                        label="Фамилия латиницей"
+                        name="latin_first_name"
+                        label="Имя латиницей"
                         rules={[
                           {
                             pattern: /^[A-Za-z]+(?:[- ][A-Za-z]+)*$/,
@@ -738,7 +791,7 @@ function ClientsPage() {
                         name="foreign_passport_expire_date"
                         label="Срок действия"
                       >
-                        <Input type="date" />
+                        <ClientDatePicker />
                       </Form.Item>
                     </Col>
                   </Row>
