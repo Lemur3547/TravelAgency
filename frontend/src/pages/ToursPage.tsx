@@ -50,10 +50,18 @@ interface TourOperator {
   name: string;
 }
 
+interface Country {
+  id: number;
+  name: string;
+  slug: string;
+}
+
 interface Destination {
   id: number;
-  country: string;
-  city: string;
+  name: string;
+  slug: string;
+  country_id: number;
+  parent_id: number | null;
 }
 
 interface TourFormValues {
@@ -161,6 +169,20 @@ function isOperatorList(value: unknown): value is TourOperator[] {
   );
 }
 
+function isCountryList(value: unknown): value is Country[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (item) =>
+        typeof item === 'object' &&
+        item !== null &&
+        typeof item.id === 'number' &&
+        typeof item.name === 'string' &&
+        typeof item.slug === 'string',
+    )
+  );
+}
+
 function isDestinationList(value: unknown): value is Destination[] {
   return (
     Array.isArray(value) &&
@@ -169,8 +191,10 @@ function isDestinationList(value: unknown): value is Destination[] {
         typeof item === 'object' &&
         item !== null &&
         typeof item.id === 'number' &&
-        typeof item.country === 'string' &&
-        typeof item.city === 'string',
+        typeof item.name === 'string' &&
+        typeof item.slug === 'string' &&
+        typeof item.country_id === 'number' &&
+        (typeof item.parent_id === 'number' || item.parent_id === null),
     )
   );
 }
@@ -190,6 +214,7 @@ function formatCurrency(value: number): string {
 function ToursPage() {
   const [tours, setTours] = useState<TourRecord[]>([]);
   const [operators, setOperators] = useState<TourOperator[]>([]);
+  const [countries, setCountries] = useState<Country[]>([]);
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [catalogsLoaded, setCatalogsLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -213,32 +238,45 @@ function ToursPage() {
       setCatalogsLoaded(false);
       setError(null);
       try {
-        const [tourResponse, operatorResponse, destinationResponse] =
-          await Promise.all([
-            fetch('/api/tours/', { signal: controller.signal }),
-            fetch('/api/tour-operators/', { signal: controller.signal }),
-            fetch('/api/destinations/', { signal: controller.signal }),
-          ]);
-        if (!tourResponse.ok || !operatorResponse.ok || !destinationResponse.ok) {
+        const [
+          tourResponse,
+          operatorResponse,
+          countryResponse,
+          destinationResponse,
+        ] = await Promise.all([
+          fetch('/api/tours/', { signal: controller.signal }),
+          fetch('/api/tour-operators/', { signal: controller.signal }),
+          fetch('/api/countries', { signal: controller.signal }),
+          fetch('/api/destinations', { signal: controller.signal }),
+        ]);
+        if (
+          !tourResponse.ok ||
+          !operatorResponse.ok ||
+          !countryResponse.ok ||
+          !destinationResponse.ok
+        ) {
           throw new Error('Не удалось загрузить туры или справочники');
         }
 
-        const [tourData, operatorData, destinationData]: unknown[] =
+        const [tourData, operatorData, countryData, destinationData]: unknown[] =
           await Promise.all([
             tourResponse.json(),
             operatorResponse.json(),
+            countryResponse.json(),
             destinationResponse.json(),
           ]);
         const parsedTours = parseTourList(tourData);
         if (
           !parsedTours ||
           !isOperatorList(operatorData) ||
+          !isCountryList(countryData) ||
           !isDestinationList(destinationData)
         ) {
           throw new Error('Сервер вернул данные в неожиданном формате');
         }
         setTours(parsedTours);
         setOperators(operatorData);
+        setCountries(countryData);
         setDestinations(destinationData);
         setCatalogsLoaded(true);
       } catch (loadError) {
@@ -261,15 +299,19 @@ function ToursPage() {
     () => new Map(operators.map((operator) => [operator.id, operator.name])),
     [operators],
   );
+  const countryNames = useMemo(
+    () => new Map(countries.map((country) => [country.id, country.name])),
+    [countries],
+  );
   const destinationNames = useMemo(
     () =>
       new Map(
         destinations.map((destination) => [
           destination.id,
-          `${destination.country}, ${destination.city}`,
+          `${countryNames.get(destination.country_id) ?? 'Страна не найдена'}, ${destination.name}`,
         ]),
       ),
-    [destinations],
+    [countryNames, destinations],
   );
 
   function openCreateModal() {
@@ -583,7 +625,7 @@ function ToursPage() {
                 optionFilterProp="label"
                 options={destinations.map((destination) => ({
                   value: destination.id,
-                  label: `${destination.country}, ${destination.city}`,
+                  label: destination.name,
                 }))}
               />
             </Form.Item>

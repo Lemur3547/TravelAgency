@@ -257,33 +257,38 @@ class TourOperatorResponse(BaseModel):
     created_at: datetime
 
 
+class CountryCreate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    name: str = Field(..., min_length=1, max_length=100)
+    slug: str = Field(..., min_length=1, max_length=100)
+
+
+class CountryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    slug: str
+
+
 class DestinationCreate(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
-    country: str = Field(..., min_length=1, max_length=100)
-    city: str = Field(..., min_length=1, max_length=100)
-    country_slug: str = Field(..., min_length=1, max_length=100)
-    city_slug: str = Field(..., min_length=1, max_length=100)
+    name: str = Field(..., min_length=1, max_length=100)
+    slug: str = Field(..., min_length=1, max_length=100)
+    country_id: int = Field(..., gt=0)
+    parent_id: Optional[int] = Field(None, gt=0)
 
 
 class DestinationResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    country: str
-    city: str
-    country_slug: str
-    city_slug: str
-
-
-class CountryResponse(BaseModel):
-    country: str
-    country_slug: str
-
-
-class CityResponse(BaseModel):
-    city: str
-    city_slug: str
+    name: str
+    slug: str
+    country_id: int
+    parent_id: Optional[int]
 
 
 MealType = Literal["Завтрак", "Полупансион", "Полный пансион", "Все включено", "Без питания"]

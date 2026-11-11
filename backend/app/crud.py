@@ -2,7 +2,7 @@ from typing import List, Optional
 from decimal import Decimal, ROUND_HALF_UP
 
 from sqlalchemy import func, and_, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from . import models, schemas
 
@@ -163,33 +163,64 @@ def delete_tour_operator(db: Session, db_tour_operator: models.TourOperator) -> 
 def get_destinations(db: Session) -> List[models.Destination]:
     return (
         db.query(models.Destination)
-        .order_by(models.Destination.country, models.Destination.city, models.Destination.id)
+        .order_by(
+            models.Destination.country_id,
+            models.Destination.name,
+            models.Destination.id,
+        )
         .all()
     )
 
 
-def get_countries(db: Session) -> list[dict[str, str]]:
-    rows = (
-        db.query(models.Destination.country, models.Destination.country_slug)
-        .distinct()
-        .order_by(models.Destination.country, models.Destination.country_slug)
+def get_countries(db: Session) -> List[models.Country]:
+    return (
+        db.query(models.Country)
+        .order_by(models.Country.name, models.Country.id)
         .all()
     )
-    return [{"country": country, "country_slug": slug} for country, slug in rows]
 
 
-def get_cities_by_country_slug(
+def get_destinations_by_country_slug(
     db: Session,
     country_slug: str,
-) -> list[dict[str, str]]:
-    rows = (
-        db.query(models.Destination.city, models.Destination.city_slug)
-        .filter(models.Destination.country_slug == country_slug)
-        .distinct()
-        .order_by(models.Destination.city)
+) -> List[models.Destination]:
+    return (
+        db.query(models.Destination)
+        .join(models.Country)
+        .filter(
+            models.Country.slug == country_slug,
+        )
+        .order_by(models.Destination.name, models.Destination.id)
         .all()
     )
-    return [{"city": city, "city_slug": slug} for city, slug in rows]
+
+
+def get_child_destinations(
+    db: Session,
+    country_slug: str,
+    destination_slug: str,
+) -> List[models.Destination]:
+    parent = aliased(models.Destination)
+    return (
+        db.query(models.Destination)
+        .join(models.Country, models.Destination.country_id == models.Country.id)
+        .join(parent, models.Destination.parent_id == parent.id)
+        .filter(
+            models.Country.slug == country_slug,
+            parent.slug == destination_slug,
+            parent.country_id == models.Country.id,
+        )
+        .order_by(models.Destination.name, models.Destination.id)
+        .all()
+    )
+
+
+def create_country(db: Session, country: schemas.CountryCreate) -> models.Country:
+    db_country = models.Country(**country.model_dump())
+    db.add(db_country)
+    db.commit()
+    db.refresh(db_country)
+    return db_country
 
 
 def create_destination(

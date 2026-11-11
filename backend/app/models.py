@@ -84,22 +84,24 @@ class TourOperator(Base):
         )
 
 
-class Destination(Base):
-    __tablename__ = "destinations"
-    __table_args__ = (
-        UniqueConstraint("country", "city", name="uq_destinations_country_city"),
-        UniqueConstraint(
-            "country_slug",
-            "city_slug",
-            name="uq_destinations_country_slug_city_slug",
-        ),
-    )
+class Country(Base):
+    __tablename__ = "countries"
 
     id = Column(Integer, primary_key=True)
-    country = Column(String(100), nullable=False)
-    city = Column(String(100), nullable=False)
-    country_slug = Column(String(100), nullable=False)
-    city_slug = Column(String(100), nullable=False)
+    name = Column(String(100), nullable=False)
+    slug = Column(String(100), nullable=False, unique=True)
+
+
+class Destination(Base):
+    __tablename__ = "destinations"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    slug = Column(String(100), nullable=False)
+    country_id = Column(Integer, ForeignKey("countries.id"), nullable=False, index=True)
+    parent_id = Column(
+        Integer, ForeignKey("destinations.id"), nullable=True, index=True
+    )
 
 
 class Tour(Base):
