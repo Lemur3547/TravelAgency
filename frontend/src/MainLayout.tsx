@@ -10,13 +10,13 @@ import {
   SettingOutlined,
 } from '@ant-design/icons';
 
-const { Header, Sider, Content } = Layout;
+const { Sider, Content } = Layout;
 
 function MainLayout({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  
+
   // Получаем встроенные токены темы Ant Design (для фонов и скруглений)
   const {
     token: { colorBgContainer, borderRadiusLG },
@@ -59,17 +59,17 @@ function MainLayout({ children }: { children: ReactNode }) {
   return (
     <Layout style={{ minHeight: '100vh' }}>
       {/* Боковая панель (Меню) */}
-      <Sider 
-        collapsible 
-        collapsed={collapsed} 
+      <Sider
+        collapsible
+        collapsed={collapsed}
         onCollapse={(value) => setCollapsed(value)}
         theme="light"
       >
         {/* Логотип приложения */}
-        <div style={{ 
-          height: 32, 
-          margin: 16, 
-          background: 'rgba(255, 255, 255, 0.2)', 
+        <div style={{
+          height: 32,
+          margin: 16,
+          background: 'rgba(255, 255, 255, 0.2)',
           borderRadius: 6,
           display: 'flex',
           alignItems: 'center',
@@ -82,9 +82,9 @@ function MainLayout({ children }: { children: ReactNode }) {
         }}>
           {collapsed ? 'ТА' : 'ТурАгентство АИС'}
         </div>
-        
-        <Menu 
-          theme="light" 
+
+        <Menu
+          theme="light"
           selectedKeys={
             location.pathname === '/clients'
               ? ['clients']
@@ -92,8 +92,8 @@ function MainLayout({ children }: { children: ReactNode }) {
                 ? ['tour-operators']
                 : []
           }
-          mode="inline" 
-          items={menuItems} 
+          mode="inline"
+          items={menuItems}
           onClick={({ key }) => {
             if (key === 'clients') navigate('/clients');
             if (key === 'tour-operators') navigate('/tour-operators');
@@ -101,35 +101,19 @@ function MainLayout({ children }: { children: ReactNode }) {
         />
       </Sider>
 
-      {/* Основная часть страницы */}
-      <Layout>
-        {/* Шапка (Header) */}
-        <Header style={{ 
-          padding: '0 24px', 
-          background: colorBgContainer, 
-          display: 'flex', 
-          justifyContent: 'flex-end', 
-          alignItems: 'center' 
-        }}>
-          <div style={{ fontWeight: '500' }}>
-            🧑‍💼 Менеджер: Алексей В.
-          </div>
-        </Header>
-
-        {/* Рабочая область (Content) */}
-        <Content style={{ margin: '24px 16px 0' }}>
-          <div
-            style={{
-              padding: 24,
-              minHeight: 360,
-              background: colorBgContainer,
-              borderRadius: borderRadiusLG,
-            }}
-          >
-            {children}
-          </div>
-        </Content>
-      </Layout>
+      {/* Рабочая область (Content) */}
+      <Content style={{ margin: '24px 16px 0' }}>
+        <div
+          style={{
+            padding: 24,
+            minHeight: 360,
+            background: colorBgContainer,
+            borderRadius: borderRadiusLG,
+          }}
+        >
+          {children}
+        </div>
+      </Content>
     </Layout>
   );
 }
