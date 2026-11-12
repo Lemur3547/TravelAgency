@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   AutoComplete,
@@ -23,6 +23,7 @@ import {
   PlusOutlined,
   ReloadOutlined,
 } from '@ant-design/icons';
+import type { InputRef } from 'antd/es/input';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs, { type Dayjs } from 'dayjs';
 
@@ -84,7 +85,7 @@ interface TourFormValues {
   tourists: number;
   description?: string;
   is_available: boolean;
-  client_price: number;
+  client_price: string;
   commission_percent: number;
 }
 
@@ -233,6 +234,86 @@ function formatCurrency(value: number): string {
   }).format(value);
 }
 
+function sanitizeClientPriceInput(value: string): string {
+  const sanitized = value.replace(/[^\d.,]/g, '');
+  const separatorIndex = sanitized.search(/[.,]/);
+  const integerPart = (separatorIndex === -1
+    ? sanitized
+    : sanitized.slice(0, separatorIndex)
+  ).replace(/\D/g, '');
+
+  if (separatorIndex === -1) return integerPart;
+
+  const fractionalPart = sanitized
+    .slice(separatorIndex + 1)
+    .replace(/\D/g, '')
+    .slice(0, 2);
+  return `${integerPart},${fractionalPart}`;
+}
+
+function formatClientPriceInput(value: string): string {
+  const [integerPart, fractionalPart] = value.split(',');
+  const groupedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '\u00a0');
+  return fractionalPart === undefined
+    ? groupedInteger
+    : `${groupedInteger},${fractionalPart}`;
+}
+
+function parseClientPrice(value: string): number {
+  return Number(value.replace(',', '.'));
+}
+
+function getClientPriceCaretPosition(value: string, characterCount: number): number {
+  if (characterCount === 0) return 0;
+  let seen = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    if (/[\d,]/.test(value[index])) seen += 1;
+    if (seen === characterCount) return index + 1;
+  }
+  return value.length;
+}
+
+interface ClientPriceInputProps {
+  value?: string | number;
+  onChange?: (value: string) => void;
+}
+
+function ClientPriceInput({ value = '', onChange }: ClientPriceInputProps) {
+  const inputRef = useRef<InputRef>(null);
+  const canonicalValue = sanitizeClientPriceInput(String(value));
+
+  return (
+    <Input
+      ref={inputRef}
+      value={formatClientPriceInput(canonicalValue)}
+      inputMode="decimal"
+      onChange={(event) => {
+        const rawValue = event.target.value;
+        const cursor = event.target.selectionStart ?? rawValue.length;
+        const canonical = sanitizeClientPriceInput(rawValue);
+        const typedCharacters = (rawValue.slice(0, cursor).match(/[\d,.]/g) ?? []).length;
+        const canonicalCursor = Math.min(typedCharacters, canonical.length);
+        onChange?.(canonical);
+        requestAnimationFrame(() => {
+          const input = inputRef.current?.input;
+          if (input) {
+            input.setSelectionRange(
+              getClientPriceCaretPosition(
+                formatClientPriceInput(canonical),
+                canonicalCursor,
+              ),
+              getClientPriceCaretPosition(
+                formatClientPriceInput(canonical),
+                canonicalCursor,
+              ),
+            );
+          }
+        });
+      }}
+    />
+  );
+}
+
 function ToursPage() {
   const [tours, setTours] = useState<TourRecord[]>([]);
   const [operators, setOperators] = useState<TourOperator[]>([]);
@@ -252,7 +333,7 @@ function ToursPage() {
   const [selectedTour, setSelectedTour] = useState<TourRecord | null>(null);
   const [form] = Form.useForm<TourFormValues>();
   const [messageApi, contextHolder] = message.useMessage();
-  const clientPrice = Form.useWatch('client_price', form) ?? 0;
+  const clientPrice = parseClientPrice(Form.useWatch('client_price', form) ?? '');
   const commissionPercent = Form.useWatch('commission_percent', form) ?? 0;
   const agencyCommission = calculateCommission(clientPrice, commissionPercent);
   const agencyPrice = Math.round((clientPrice - agencyCommission) * 100) / 100;
@@ -412,6 +493,7 @@ function ToursPage() {
     setDepartureCitySearchActive(false);
     form.setFieldsValue({
       ...tour,
+      client_price: String(tour.client_price).replace('.', ','),
       meal_type: tour.meal_types[0],
       start_date: dayjs(tour.start_date),
     });
@@ -439,6 +521,7 @@ function ToursPage() {
     const { start_date, meal_type, ...rest } = values;
     const payload = {
       ...rest,
+      client_price: parseClientPrice(values.client_price),
       meal_types: [meal_type],
       description: values.description ?? '',
       start_date: start_date.format('YYYY-MM-DD'),
@@ -902,14 +985,18 @@ function ToursPage() {
             <Form.Item
               name="client_price"
               label="Стоимость для клиента, ₽"
-              rules={[{ required: true, message: 'Укажите стоимость' }]}
+              rules={[
+                { required: true, message: 'Укажите стоимость' },
+                {
+                  validator: (_, value: string | undefined) => {
+                    if (!value) return Promise.resolve();
+                    if (value && parseClientPrice(value) >= 0.01) return Promise.resolve();
+                    return Promise.reject(new Error('Стоимость должна быть больше нуля'));
+                  },
+                },
+              ]}
             >
-              <InputNumber
-                min={0.01}
-                precision={2}
-                step={1000}
-                style={{ width: '100%' }}
-              />
+              <ClientPriceInput />
             </Form.Item>
             <Form.Item
               name="commission_percent"
