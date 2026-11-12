@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
+  AutoComplete,
   Button,
   DatePicker,
   Form,
@@ -216,6 +217,8 @@ function ToursPage() {
   const [operators, setOperators] = useState<TourOperator[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
   const [destinations, setDestinations] = useState<Destination[]>([]);
+  const [destinationSearch, setDestinationSearch] = useState('');
+  const [destinationSearchActive, setDestinationSearchActive] = useState(false);
   const [catalogsLoaded, setCatalogsLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -303,26 +306,62 @@ function ToursPage() {
     () => new Map(countries.map((country) => [country.id, country.name])),
     [countries],
   );
+  const destinationsById = useMemo(
+    () => new Map(destinations.map((destination) => [destination.id, destination])),
+    [destinations],
+  );
   const destinationNames = useMemo(
     () =>
       new Map(
-        destinations.map((destination) => [
-          destination.id,
-          `${countryNames.get(destination.country_id) ?? 'Страна не найдена'}, ${destination.name}`,
-        ]),
+        destinations.map((destination) => {
+          const parent = destination.parent_id
+            ? destinationsById.get(destination.parent_id)
+            : undefined;
+          const context = parent?.name
+            ?? countryNames.get(destination.country_id)
+            ?? 'Страна не найдена';
+          return [destination.id, `${destination.name}, ${context}`];
+        }),
       ),
-    [countryNames, destinations],
+    [countryNames, destinations, destinationsById],
+  );
+  const destinationOptions = useMemo(
+    () => destinations.map((destination) => {
+      const parent = destination.parent_id
+        ? destinationsById.get(destination.parent_id)
+        : undefined;
+      const country = countryNames.get(destination.country_id);
+      const context = [parent?.name, country].filter(Boolean).join(' · ');
+      return {
+        value: String(destination.id),
+        label: (
+          <div style={{ lineHeight: 1.4 }}>
+            <div>{destination.name}</div>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              {context}
+            </Typography.Text>
+          </div>
+        ),
+      };
+    }),
+    [countryNames, destinations, destinationsById],
   );
 
   function openCreateModal() {
     setSelectedTour(null);
     form.resetFields();
+    setDestinationSearch('');
+    setDestinationSearchActive(false);
     form.setFieldsValue({ is_available: true, start_date: dayjs(), tourists: 2 });
     setModalOpen(true);
   }
 
   function openEditModal(tour: TourRecord) {
     setSelectedTour(tour);
+    setDestinationSearch(
+      destinationsById.get(tour.destination_id)?.name ?? '',
+    );
+    setDestinationSearchActive(false);
     form.setFieldsValue({
       ...tour,
       meal_type: tour.meal_types[0],
@@ -615,19 +654,94 @@ function ToursPage() {
                 }))}
               />
             </Form.Item>
+            <Form.Item noStyle shouldUpdate>
+              {({ getFieldError }) => {
+                const errors = getFieldError('destination_id');
+                return (
+                  <Form.Item
+                    label="Направление"
+                    required
+                    validateStatus={errors.length ? 'error' : undefined}
+                    help={errors[0]}
+                  >
+                    <Space direction="vertical" size={2} style={{ width: '100%' }}>
+                      <AutoComplete
+                        value={destinationSearch}
+                        open={
+                          destinationSearchActive &&
+                          destinationSearch.trim().length > 0
+                        }
+                        options={
+                          destinationSearch.trim()
+                            ? destinationOptions
+                            : []
+                        }
+                        placeholder="Начните вводить название направления"
+                        filterOption={(input, option) => {
+                          const destination = destinationsById.get(
+                            Number(option?.value),
+                          );
+                          if (!destination) return false;
+                          const parent = destination.parent_id
+                            ? destinationsById.get(destination.parent_id)
+                            : undefined;
+                          const country = countryNames.get(destination.country_id);
+                          return [destination.name, parent?.name, country]
+                            .filter(Boolean)
+                            .join(' ')
+                            .toLocaleLowerCase()
+                            .includes(input.toLocaleLowerCase());
+                        }}
+                        onChange={(value) => {
+                          setDestinationSearch(value);
+                          setDestinationSearchActive(true);
+                          form.setFields([
+                            { name: 'destination_id', value: undefined, errors: [] },
+                          ]);
+                        }}
+                        onSelect={(value) => {
+                          const destination = destinationsById.get(Number(value));
+                          if (!destination) return;
+                          setDestinationSearch(destination.name);
+                          setDestinationSearchActive(false);
+                          form.setFieldsValue({ destination_id: destination.id });
+                        }}
+                      />
+                      {typeof form.getFieldValue('destination_id') === 'number' &&
+                        (() => {
+                          const destination = destinationsById.get(
+                            form.getFieldValue('destination_id'),
+                          );
+                          if (!destination) return null;
+                          const parent = destination.parent_id
+                            ? destinationsById.get(destination.parent_id)
+                            : undefined;
+                          const context = [
+                            parent?.name,
+                            countryNames.get(destination.country_id),
+                          ]
+                            .filter(Boolean)
+                            .join(' · ');
+                          return (
+                            <Typography.Text
+                              type="secondary"
+                              style={{ fontSize: 12, paddingInline: 11 }}
+                            >
+                              {context}
+                            </Typography.Text>
+                          );
+                        })()}
+                    </Space>
+                  </Form.Item>
+                );
+              }}
+            </Form.Item>
             <Form.Item
               name="destination_id"
-              label="Направление"
-              rules={[{ required: true, message: 'Выберите направление' }]}
+              hidden
+              rules={[{ required: true, message: 'Выберите направление из списка' }]}
             >
-              <Select
-                showSearch
-                optionFilterProp="label"
-                options={destinations.map((destination) => ({
-                  value: destination.id,
-                  label: destination.name,
-                }))}
-              />
+              <Input />
             </Form.Item>
             <Form.Item
               name="departure_city"
