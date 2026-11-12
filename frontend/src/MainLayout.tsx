@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Layout, Menu, theme } from 'antd';
 import {
@@ -12,10 +12,23 @@ import {
 
 const { Sider, Content } = Layout;
 
+const pageTitles: Record<string, string> = {
+  '/clients': 'База клиентов',
+  '/tour-operators': 'Туроператоры',
+  '/tours': 'Туры',
+};
+
 function MainLayout({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const pageTitle = pageTitles[location.pathname];
+    document.title = pageTitle
+      ? `${pageTitle} | ТурАгентство АИС`
+      : 'ТурАгентство АИС';
+  }, [location.pathname]);
 
   // Получаем встроенные токены темы Ant Design (для фонов и скруглений)
   const {
