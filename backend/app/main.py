@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .routers.clients import router as clients_router
 from .routers.destinations import router as destinations_router
+from .routers.departures import router as departures_router
 from .routers.tour_operators import router as tour_operators_router
 from .routers.tours import router as tours_router
 
@@ -25,6 +26,7 @@ app.add_middleware(
 
 app.include_router(clients_router)
 app.include_router(destinations_router)
+app.include_router(departures_router)
 app.include_router(tour_operators_router)
 app.include_router(tours_router)
 

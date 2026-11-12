@@ -291,6 +291,19 @@ class DestinationResponse(BaseModel):
     parent_id: Optional[int]
 
 
+class DepartureCityCreate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    name: str = Field(..., min_length=1, max_length=100)
+
+
+class DepartureCityResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+
+
 MealType = Literal["Завтрак", "Полупансион", "Полный пансион", "Все включено", "Без питания"]
 
 
@@ -300,7 +313,7 @@ class TourBase(BaseModel):
     operator_id: int = Field(..., gt=0)
     title: str = Field(..., min_length=1, max_length=255)
     destination_id: int = Field(..., gt=0)
-    departure_city: str = Field(..., min_length=1, max_length=100)
+    departure_city_id: int = Field(..., gt=0)
     hotel_name: str = Field(..., min_length=1, max_length=255)
     room_type: str = Field(..., min_length=1, max_length=100)
     meal_types: list[MealType] = Field(..., min_length=1, max_length=1)
@@ -325,7 +338,7 @@ class TourUpdate(BaseModel):
     operator_id: Optional[int] = Field(None, gt=0)
     title: Optional[str] = Field(None, min_length=1, max_length=255)
     destination_id: Optional[int] = Field(None, gt=0)
-    departure_city: Optional[str] = Field(None, min_length=1, max_length=100)
+    departure_city_id: Optional[int] = Field(None, gt=0)
     hotel_name: Optional[str] = Field(None, min_length=1, max_length=255)
     room_type: Optional[str] = Field(None, min_length=1, max_length=100)
     meal_types: Optional[list[MealType]] = Field(None, min_length=1, max_length=1)
@@ -346,5 +359,6 @@ class TourResponse(TourBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    departure_city: str
     agency_price: Decimal
     agency_commission: Decimal

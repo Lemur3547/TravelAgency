@@ -31,6 +31,7 @@ interface TourRecord {
   operator_id: number;
   title: string;
   destination_id: number;
+  departure_city_id: number;
   departure_city: string;
   hotel_name: string;
   room_type: string;
@@ -65,11 +66,16 @@ interface Destination {
   parent_id: number | null;
 }
 
+interface DepartureCity {
+  id: number;
+  name: string;
+}
+
 interface TourFormValues {
   operator_id: number;
   title: string;
   destination_id: number;
-  departure_city: string;
+  departure_city_id: number;
   hotel_name: string;
   room_type: string;
   meal_type: string;
@@ -117,6 +123,7 @@ function parseTour(value: unknown): TourRecord | null {
     typeof tour.operator_id !== 'number' ||
     typeof tour.title !== 'string' ||
     typeof tour.destination_id !== 'number' ||
+    typeof tour.departure_city_id !== 'number' ||
     typeof tour.departure_city !== 'string' ||
     typeof tour.hotel_name !== 'string' ||
     typeof tour.room_type !== 'string' ||
@@ -137,6 +144,7 @@ function parseTour(value: unknown): TourRecord | null {
     operator_id: tour.operator_id,
     title: tour.title,
     destination_id: tour.destination_id,
+    departure_city_id: tour.departure_city_id,
     departure_city: tour.departure_city,
     hotel_name: tour.hotel_name,
     room_type: tour.room_type,
@@ -200,6 +208,19 @@ function isDestinationList(value: unknown): value is Destination[] {
   );
 }
 
+function isDepartureCityList(value: unknown): value is DepartureCity[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (item) =>
+        typeof item === 'object' &&
+        item !== null &&
+        typeof item.id === 'number' &&
+        typeof item.name === 'string',
+    )
+  );
+}
+
 function calculateCommission(price = 0, percent = 0): number {
   return Math.round((price * percent + Number.EPSILON) / 100 * 100) / 100;
 }
@@ -217,8 +238,11 @@ function ToursPage() {
   const [operators, setOperators] = useState<TourOperator[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
   const [destinations, setDestinations] = useState<Destination[]>([]);
+  const [departureCities, setDepartureCities] = useState<DepartureCity[]>([]);
   const [destinationSearch, setDestinationSearch] = useState('');
   const [destinationSearchActive, setDestinationSearchActive] = useState(false);
+  const [departureCitySearch, setDepartureCitySearch] = useState('');
+  const [departureCitySearchActive, setDepartureCitySearchActive] = useState(false);
   const [catalogsLoaded, setCatalogsLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -246,34 +270,45 @@ function ToursPage() {
           operatorResponse,
           countryResponse,
           destinationResponse,
+          departureCityResponse,
         ] = await Promise.all([
           fetch('/api/tours/', { signal: controller.signal }),
           fetch('/api/tour-operators/', { signal: controller.signal }),
           fetch('/api/countries', { signal: controller.signal }),
           fetch('/api/destinations', { signal: controller.signal }),
+          fetch('/api/departures', { signal: controller.signal }),
         ]);
         if (
           !tourResponse.ok ||
           !operatorResponse.ok ||
           !countryResponse.ok ||
-          !destinationResponse.ok
+          !destinationResponse.ok ||
+          !departureCityResponse.ok
         ) {
           throw new Error('Не удалось загрузить туры или справочники');
         }
 
-        const [tourData, operatorData, countryData, destinationData]: unknown[] =
+        const [
+          tourData,
+          operatorData,
+          countryData,
+          destinationData,
+          departureCityData,
+        ]: unknown[] =
           await Promise.all([
             tourResponse.json(),
             operatorResponse.json(),
             countryResponse.json(),
             destinationResponse.json(),
+            departureCityResponse.json(),
           ]);
         const parsedTours = parseTourList(tourData);
         if (
           !parsedTours ||
           !isOperatorList(operatorData) ||
           !isCountryList(countryData) ||
-          !isDestinationList(destinationData)
+          !isDestinationList(destinationData) ||
+          !isDepartureCityList(departureCityData)
         ) {
           throw new Error('Сервер вернул данные в неожиданном формате');
         }
@@ -281,6 +316,7 @@ function ToursPage() {
         setOperators(operatorData);
         setCountries(countryData);
         setDestinations(destinationData);
+        setDepartureCities(departureCityData);
         setCatalogsLoaded(true);
       } catch (loadError) {
         if (loadError instanceof Error && loadError.name === 'AbortError') return;
@@ -346,12 +382,22 @@ function ToursPage() {
     }),
     [countryNames, destinations, destinationsById],
   );
+  const departureCityOptions = useMemo(
+    () =>
+      departureCities.map((city) => ({
+        value: String(city.id),
+        label: city.name,
+      })),
+    [departureCities],
+  );
 
   function openCreateModal() {
     setSelectedTour(null);
     form.resetFields();
     setDestinationSearch('');
     setDestinationSearchActive(false);
+    setDepartureCitySearch('');
+    setDepartureCitySearchActive(false);
     form.setFieldsValue({ is_available: true, start_date: dayjs(), tourists: 2 });
     setModalOpen(true);
   }
@@ -362,6 +408,8 @@ function ToursPage() {
       destinationsById.get(tour.destination_id)?.name ?? '',
     );
     setDestinationSearchActive(false);
+    setDepartureCitySearch(tour.departure_city);
+    setDepartureCitySearchActive(false);
     form.setFieldsValue({
       ...tour,
       meal_type: tour.meal_types[0],
@@ -566,7 +614,11 @@ function ToursPage() {
             type="primary"
             icon={<PlusOutlined />}
             onClick={openCreateModal}
-            disabled={operators.length === 0 || destinations.length === 0}
+            disabled={
+              operators.length === 0 ||
+              destinations.length === 0 ||
+              departureCities.length === 0
+            }
           >
             Добавить тур
           </Button>
@@ -598,6 +650,13 @@ function ToursPage() {
             type="warning"
             showIcon
             message="Сначала добавьте направления в справочник."
+          />
+        )}
+        {catalogsLoaded && departureCities.length === 0 && (
+          <Alert
+            type="warning"
+            showIcon
+            message="Сначала добавьте города вылета в справочник."
           />
         )}
         <Table<TourRecord>
@@ -744,11 +803,56 @@ function ToursPage() {
               <Input />
             </Form.Item>
             <Form.Item
-              name="departure_city"
-              label="Город вылета"
-              rules={[{ required: true, whitespace: true, message: 'Укажите город вылета' }]}
+              name="departure_city_id"
+              hidden
+              rules={[{ required: true, message: 'Выберите город вылета из списка' }]}
             >
-              <Input maxLength={100} />
+              <Input />
+            </Form.Item>
+            <Form.Item noStyle shouldUpdate>
+              {({ getFieldError }) => {
+                const errors = getFieldError('departure_city_id');
+                return (
+                  <Form.Item
+                    label="Город вылета"
+                    required
+                    validateStatus={errors.length ? 'error' : undefined}
+                    help={errors[0]}
+                  >
+                    <AutoComplete
+                      value={departureCitySearch}
+                      open={
+                        departureCitySearchActive &&
+                        departureCitySearch.trim().length > 0
+                      }
+                      options={departureCityOptions}
+                      placeholder="Начните вводить город вылета"
+                      filterOption={(input, option) =>
+                        departureCities
+                          .find((city) => String(city.id) === option?.value)
+                          ?.name.toLocaleLowerCase()
+                          .includes(input.toLocaleLowerCase()) ?? false
+                      }
+                      onChange={(value) => {
+                        setDepartureCitySearch(value);
+                        setDepartureCitySearchActive(true);
+                        form.setFields([
+                          { name: 'departure_city_id', value: undefined, errors: [] },
+                        ]);
+                      }}
+                      onSelect={(value) => {
+                        const city = departureCities.find(
+                          (item) => item.id === Number(value),
+                        );
+                        if (!city) return;
+                        setDepartureCitySearch(city.name);
+                        setDepartureCitySearchActive(false);
+                        form.setFieldsValue({ departure_city_id: city.id });
+                      }}
+                    />
+                  </Form.Item>
+                );
+              }}
             </Form.Item>
             <Form.Item
               name="hotel_name"

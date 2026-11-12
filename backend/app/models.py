@@ -14,6 +14,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
+from sqlalchemy.orm import relationship
 
 from .database import Base
 
@@ -104,6 +105,16 @@ class Destination(Base):
     )
 
 
+class DepartureCity(Base):
+    __tablename__ = "departure_cities"
+    __table_args__ = (UniqueConstraint("name", name="uq_departure_cities_name"),)
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+
+    tours = relationship("Tour", back_populates="departure")
+
+
 class Tour(Base):
     __tablename__ = "tours"
 
@@ -115,7 +126,10 @@ class Tour(Base):
     destination_id = Column(
         Integer, ForeignKey("destinations.id"), nullable=False, index=True
     )
-    departure_city = Column(String(100), nullable=False)
+    departure_city_id = Column(
+        Integer, ForeignKey("departure_cities.id"), nullable=False, index=True
+    )
+    departure = relationship("DepartureCity", back_populates="tours")
     hotel_name = Column(String(255), nullable=False)
     room_type = Column(String(100), nullable=False)
     meal_types = Column(JSON, nullable=False)
@@ -128,3 +142,7 @@ class Tour(Base):
     commission_percent = Column(Numeric(5, 2), nullable=False)
     agency_price = Column(Numeric(12, 2), nullable=False)
     agency_commission = Column(Numeric(12, 2), nullable=False)
+
+    @property
+    def departure_city(self):
+        return self.departure.name

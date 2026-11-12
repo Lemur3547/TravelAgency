@@ -234,6 +234,25 @@ def create_destination(
     return db_destination
 
 
+def get_departure_cities(db: Session) -> List[models.DepartureCity]:
+    return (
+        db.query(models.DepartureCity)
+        .order_by(models.DepartureCity.name, models.DepartureCity.id)
+        .all()
+    )
+
+
+def create_departure_city(
+    db: Session,
+    departure_city: schemas.DepartureCityCreate,
+) -> models.DepartureCity:
+    db_departure_city = models.DepartureCity(**departure_city.model_dump())
+    db.add(db_departure_city)
+    db.commit()
+    db.refresh(db_departure_city)
+    return db_departure_city
+
+
 def _tour_prices(client_price: Decimal, commission_percent: Decimal) -> tuple[Decimal, Decimal]:
     commission = (client_price * commission_percent / Decimal("100")).quantize(
         Decimal("0.01"), rounding=ROUND_HALF_UP

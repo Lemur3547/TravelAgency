@@ -33,7 +33,7 @@ def create_tour(tour: schemas.TourCreate, db: Session = Depends(get_db)):
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="Указанный туроператор или направление не найдено",
+            detail="Указанный туроператор, направление или город вылета не найден",
         ) from exc
 
 
@@ -60,7 +60,7 @@ def update_tour(
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="Указанный туроператор или направление не найдено",
+            detail="Указанный туроператор, направление или город вылета не найден",
         ) from exc
 
 
