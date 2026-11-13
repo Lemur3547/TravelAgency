@@ -362,3 +362,90 @@ class TourResponse(TourBase):
     departure_city: str
     agency_price: Decimal
     agency_commission: Decimal
+
+
+class RoleResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    slug: str
+
+
+class EmployeeDetails(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    last_name: str = Field(..., min_length=1, max_length=50)
+    first_name: str = Field(..., min_length=1, max_length=50)
+    father_name: Optional[str] = Field(None, max_length=50)
+    passport_number: str = Field(..., max_length=11)
+    login: str = Field(..., min_length=3, max_length=100)
+    email: EmailStr = Field(..., max_length=255)
+    phone: str = Field(..., min_length=1, max_length=15)
+
+    @field_validator("last_name", "first_name")
+    @classmethod
+    def validate_russian_name(cls, value: str) -> str:
+        return _validate_name(value, "russian") or value
+
+    @field_validator("father_name")
+    @classmethod
+    def validate_russian_father_name(cls, value: Optional[str]) -> Optional[str]:
+        return _validate_name(value, "russian")
+
+    @field_validator("passport_number", mode="before")
+    @classmethod
+    def normalize_passport_number(cls, value: object) -> Optional[str]:
+        return _normalize_passport_number(value, 10)
+
+    @field_validator("phone", mode="before")
+    @classmethod
+    def normalize_phone(cls, value: object) -> object:
+        return _normalize_russian_phone(value)
+
+    @field_validator("login")
+    @classmethod
+    def normalize_login(cls, value: str) -> str:
+        if not re.fullmatch(r"[A-Za-z0-9._-]{3,100}", value):
+            raise ValueError("Логин должен содержать 3-100 латинских букв, цифр, ., _ или -")
+        return value.lower()
+
+
+class EmployeeRegistration(EmployeeDetails):
+    role_id: int = Field(..., gt=0)
+
+
+class DirectorSetupRequest(EmployeeDetails):
+    password: str = Field(..., min_length=12, max_length=128)
+
+
+class EmployeeResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    last_name: str
+    first_name: str
+    father_name: Optional[str]
+    passport_number: str
+    login: str
+    email: EmailStr
+    phone: str
+    role: RoleResponse
+    created_at: datetime
+    updated_at: datetime
+    is_active: bool
+
+
+class EmployeeInviteResponse(BaseModel):
+    employee: EmployeeResponse
+    activation_url: str
+
+
+class LoginRequest(BaseModel):
+    login: str = Field(..., min_length=1, max_length=100)
+    password: str = Field(..., min_length=1, max_length=128)
+
+
+class ActivateAccountRequest(BaseModel):
+    invite_token: str = Field(..., min_length=20, max_length=200)
+    password: str = Field(..., min_length=12, max_length=128)

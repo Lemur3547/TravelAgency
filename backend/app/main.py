@@ -4,6 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from .routers.clients import router as clients_router
 from .routers.destinations import router as destinations_router
 from .routers.departures import router as departures_router
+from .routers.auth import router as auth_router
+from .routers.employees import router as employees_router
 from .routers.tour_operators import router as tour_operators_router
 from .routers.tours import router as tours_router
 
@@ -29,13 +31,15 @@ app.include_router(destinations_router)
 app.include_router(departures_router)
 app.include_router(tour_operators_router)
 app.include_router(tours_router)
+app.include_router(auth_router)
+app.include_router(employees_router)
 
 
-@app.get("/")
+@app.get("/api")
 async def root():
     return {"message": "Hello, FastAPI!"}
 
 
-@app.get("/health")
+@app.get("/api/health")
 async def health_check():
     return {"status": "super gut!"}
