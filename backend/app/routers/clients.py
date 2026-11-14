@@ -3,9 +3,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .. import crud, schemas
+from ..auth_dependencies import get_current_employee
 from ..database import get_db
 
-router = APIRouter(prefix="/api/clients", tags=["Clients"])
+router = APIRouter(
+    prefix="/api/clients",
+    tags=["Clients"],
+    dependencies=[Depends(get_current_employee)],
+)
 
 _REQUIRED_FIELDS = {
     "last_name",

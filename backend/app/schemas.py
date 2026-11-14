@@ -4,7 +4,14 @@ from decimal import Decimal
 from typing import Literal
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 
 def _validate_legal_entity_inn(value: str) -> str:
@@ -417,6 +424,13 @@ class EmployeeRegistration(EmployeeDetails):
 
 class DirectorSetupRequest(EmployeeDetails):
     password: str = Field(..., min_length=12, max_length=128)
+    password_confirmation: str = Field(..., min_length=12, max_length=128)
+
+    @model_validator(mode="after")
+    def validate_password_confirmation(self):
+        if self.password != self.password_confirmation:
+            raise ValueError("Пароли не совпадают")
+        return self
 
 
 class EmployeeResponse(BaseModel):
@@ -449,3 +463,15 @@ class LoginRequest(BaseModel):
 class ActivateAccountRequest(BaseModel):
     invite_token: str = Field(..., min_length=20, max_length=200)
     password: str = Field(..., min_length=12, max_length=128)
+    password_confirmation: str = Field(..., min_length=12, max_length=128)
+
+    @model_validator(mode="after")
+    def validate_password_confirmation(self):
+        if self.password != self.password_confirmation:
+            raise ValueError("Пароли не совпадают")
+        return self
+
+
+class ActivationLinkResponse(BaseModel):
+    first_name: str
+    last_name: str

@@ -1,13 +1,14 @@
 import hashlib
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from jwt import InvalidTokenError
 from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
+from ..auth_dependencies import get_active_refresh_session
 from ..database import get_db
 from ..security import (
     ACCESS_TOKEN_MINUTES,
@@ -84,19 +85,23 @@ def _issue_auth_tokens(
         employee.id, "refresh", refresh_jti, refresh_expires_at
     )
     if session is None:
-        db.add(
-            models.EmployeeRefreshSession(
-                employee_id=employee.id,
-                jti=refresh_jti,
-                expires_at=refresh_expires_at,
-            )
+        session = models.EmployeeRefreshSession(
+            employee_id=employee.id,
+            jti=refresh_jti,
+            expires_at=refresh_expires_at,
         )
+        db.add(session)
+        db.flush()
     else:
         session.jti = refresh_jti
         session.expires_at = refresh_expires_at
     db.commit()
     access_token = create_token(
-        employee.id, "access", create_token_id(), access_expires_at
+        employee.id,
+        "access",
+        create_token_id(),
+        access_expires_at,
+        session_id=str(session.id),
     )
     return access_token, refresh_token
 
@@ -109,14 +114,55 @@ def _unauthorized() -> HTTPException:
     )
 
 
+def _employee_id_from_valid_token(token: str | None) -> int | None:
+    if not token:
+        return None
+    try:
+        claims = decode_token(token)
+        return int(claims["sub"])
+    except (InvalidTokenError, KeyError, TypeError, ValueError):
+        return None
+
+
+def _revoke_employee_sessions(db: Session, employee_id: int) -> None:
+    (
+        db.query(models.EmployeeRefreshSession)
+        .filter(models.EmployeeRefreshSession.employee_id == employee_id)
+        .delete(synchronize_session=False)
+    )
+    db.commit()
+
+
+def _revoke_sessions_for_invalid_refresh(
+    request: Request,
+    db: Session,
+    refresh_token: str,
+) -> None:
+    employee_id = _employee_id_from_valid_token(refresh_token)
+    if employee_id is None:
+        employee_id = _employee_id_from_valid_token(
+            request.cookies.get(_ACCESS_COOKIE)
+        )
+    if employee_id is not None:
+        _revoke_employee_sessions(db, employee_id)
+
+
 def _has_open_session(request: Request, db: Session) -> bool:
     access_token = request.cookies.get(_ACCESS_COOKIE)
     if access_token:
         try:
             claims = decode_token(access_token)
             if claims.get("type") == "access":
-                employee = db.get(models.Employee, int(claims["sub"]))
-                if employee is not None and employee.is_active:
+                employee_id = int(claims["sub"])
+                session_id = claims["sid"]
+                employee = db.get(models.Employee, employee_id)
+                if (
+                    isinstance(session_id, str)
+                    and employee is not None
+                    and employee.is_active
+                    and get_active_refresh_session(db, employee_id, session_id)
+                    is not None
+                ):
                     return True
         except (InvalidTokenError, KeyError, TypeError, ValueError):
             pass
@@ -149,6 +195,38 @@ def _has_open_session(request: Request, db: Session) -> bool:
     if expires_at.tzinfo is None:
         expires_at = expires_at.replace(tzinfo=timezone.utc)
     return expires_at > datetime.now(timezone.utc)
+
+
+def _renew_from_access_token(
+    request: Request,
+    response: Response,
+    db: Session,
+) -> models.Employee | None:
+    access_token = request.cookies.get(_ACCESS_COOKIE)
+    if not access_token:
+        return None
+    try:
+        claims = decode_token(access_token)
+        if claims.get("type") != "access":
+            return None
+        employee_id = int(claims["sub"])
+        session_id = claims["sid"]
+        if not isinstance(session_id, str) or not session_id:
+            return None
+    except (InvalidTokenError, KeyError, TypeError, ValueError):
+        return None
+
+    employee = db.get(models.Employee, employee_id)
+    if employee is None or not employee.is_active:
+        return None
+    refresh_session = get_active_refresh_session(db, employee_id, session_id)
+    if refresh_session is None:
+        return None
+    new_access_token, new_refresh_token = _issue_auth_tokens(
+        db, employee, session=refresh_session
+    )
+    _set_auth_cookies(response, new_access_token, new_refresh_token)
+    return employee
 
 
 def _require_signed_out(request: Request, db: Session) -> None:
@@ -190,7 +268,9 @@ def setup_director(
             detail="Первоначальная настройка уже выполнена",
         )
 
-    employee_data = request_data.model_dump(exclude={"password"})
+    employee_data = request_data.model_dump(
+        exclude={"password", "password_confirmation"}
+    )
     employee = models.Employee(
         **employee_data,
         role_id=director_role.id,
@@ -212,6 +292,18 @@ def setup_director(
     access_token, refresh_token = _issue_auth_tokens(db, employee)
     _set_auth_cookies(response, access_token, refresh_token)
     return employee
+
+
+@router.get("/setup")
+def setup_status(db: Session = Depends(get_db)):
+    setup_available = (
+        db.query(models.Employee.id).first() is None
+        and db.query(models.Role.id)
+        .filter(models.Role.slug == "director")
+        .first()
+        is not None
+    )
+    return {"available": setup_available}
 
 
 @router.post("/login", response_model=schemas.EmployeeResponse)
@@ -237,6 +329,28 @@ def login(
     access_token, refresh_token = _issue_auth_tokens(db, employee)
     _set_auth_cookies(response, access_token, refresh_token)
     return employee
+
+
+@router.get("/activate", response_model=schemas.ActivationLinkResponse)
+def inspect_activation_link(
+    token: str = Query(..., min_length=20, max_length=200),
+    db: Session = Depends(get_db),
+):
+    token_digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    employee = (
+        db.query(models.Employee)
+        .filter(
+            models.Employee.invite_token == token_digest,
+            models.Employee.is_active.is_(False),
+        )
+        .first()
+    )
+    if employee is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Ссылка активации недействительна или уже использована",
+        )
+    return {"first_name": employee.first_name, "last_name": employee.last_name}
 
 
 @router.post("/activate", response_model=schemas.EmployeeResponse)
@@ -303,6 +417,14 @@ def refresh_authentication(
 ):
     token = request.cookies.get(_REFRESH_COOKIE)
     if not token:
+        employee = _renew_from_access_token(request, response, db)
+        if employee is not None:
+            return employee
+        employee_id = _employee_id_from_valid_token(
+            request.cookies.get(_ACCESS_COOKIE)
+        )
+        if employee_id is not None:
+            _revoke_employee_sessions(db, employee_id)
         raise _unauthorized()
     try:
         claims = decode_token(token)
@@ -311,6 +433,7 @@ def refresh_authentication(
         employee_id = int(claims["sub"])
         refresh_jti = claims["jti"]
     except (InvalidTokenError, KeyError, TypeError, ValueError) as exc:
+        _revoke_sessions_for_invalid_refresh(request, db, token)
         raise _unauthorized() from exc
 
     refresh_session = (
@@ -332,6 +455,7 @@ def refresh_authentication(
         or not employee.is_active
         or expires_at <= datetime.now(timezone.utc)
     ):
+        _revoke_employee_sessions(db, employee_id)
         raise _unauthorized()
 
     access_token, refresh_token = _issue_auth_tokens(
@@ -343,6 +467,7 @@ def refresh_authentication(
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 def logout(request: Request, response: Response, db: Session = Depends(get_db)):
+    refresh_session = None
     token = request.cookies.get(_REFRESH_COOKIE)
     if token:
         try:
@@ -356,9 +481,34 @@ def logout(request: Request, response: Response, db: Session = Depends(get_db)):
                     )
                     .first()
                 )
-                if refresh_session is not None:
-                    db.delete(refresh_session)
-                    db.commit()
         except (InvalidTokenError, KeyError, TypeError, ValueError):
             pass
+    if refresh_session is None:
+        access_token = request.cookies.get(_ACCESS_COOKIE)
+        if access_token:
+            try:
+                claims = decode_token(access_token)
+                if claims.get("type") == "access":
+                    employee_id = int(claims["sub"])
+                    session_id = claims["sid"]
+                    if isinstance(session_id, str):
+                        try:
+                            session_pk = int(session_id)
+                        except ValueError:
+                            session_pk = 0
+                        if session_pk > 0:
+                            refresh_session = (
+                                db.query(models.EmployeeRefreshSession)
+                                .filter(
+                                    models.EmployeeRefreshSession.id == session_pk,
+                                    models.EmployeeRefreshSession.employee_id
+                                    == employee_id,
+                                )
+                                .first()
+                            )
+            except (InvalidTokenError, KeyError, TypeError, ValueError):
+                pass
+    if refresh_session is not None:
+        db.delete(refresh_session)
+        db.commit()
     _clear_auth_cookies(response)

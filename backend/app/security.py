@@ -46,19 +46,19 @@ def create_token(
     token_type: str,
     token_id: str,
     expires_at: datetime,
+    session_id: str | None = None,
 ) -> str:
-    return jwt.encode(
-        {
-            "sub": str(employee_id),
-            "type": token_type,
-            "jti": token_id,
-            "iat": datetime.now(timezone.utc),
-            "exp": expires_at,
-            "iss": TOKEN_ISSUER,
-        },
-        AUTH_SECRET_KEY,
-        algorithm="HS256",
-    )
+    claims: dict[str, Any] = {
+        "sub": str(employee_id),
+        "type": token_type,
+        "jti": token_id,
+        "iat": datetime.now(timezone.utc),
+        "exp": expires_at,
+        "iss": TOKEN_ISSUER,
+    }
+    if session_id is not None:
+        claims["sid"] = session_id
+    return jwt.encode(claims, AUTH_SECRET_KEY, algorithm="HS256")
 
 
 def decode_token(token: str) -> dict[str, Any]:

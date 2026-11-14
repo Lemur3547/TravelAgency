@@ -26,6 +26,7 @@ import {
 import type { InputRef } from 'antd/es/input';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs, { type Dayjs } from 'dayjs';
+import { apiFetch, ensureSession } from '../utils/api';
 
 interface TourRecord {
   id: number;
@@ -353,11 +354,11 @@ function ToursPage() {
           destinationResponse,
           departureCityResponse,
         ] = await Promise.all([
-          fetch('/api/tours/', { signal: controller.signal }),
-          fetch('/api/tour-operators/', { signal: controller.signal }),
-          fetch('/api/countries', { signal: controller.signal }),
-          fetch('/api/destinations', { signal: controller.signal }),
-          fetch('/api/departures', { signal: controller.signal }),
+          apiFetch('/api/tours/', { signal: controller.signal }),
+          apiFetch('/api/tour-operators/', { signal: controller.signal }),
+          apiFetch('/api/countries', { signal: controller.signal }),
+          apiFetch('/api/destinations', { signal: controller.signal }),
+          apiFetch('/api/departures', { signal: controller.signal }),
         ]);
         if (
           !tourResponse.ok ||
@@ -472,7 +473,17 @@ function ToursPage() {
     [departureCities],
   );
 
-  function openCreateModal() {
+  async function openCreateModal() {
+    try {
+      if (!(await ensureSession())) return;
+    } catch (sessionError) {
+      messageApi.error(
+        sessionError instanceof Error
+          ? sessionError.message
+          : 'Не удалось проверить сессию',
+      );
+      return;
+    }
     setSelectedTour(null);
     form.resetFields();
     setDestinationSearch('');
@@ -483,7 +494,17 @@ function ToursPage() {
     setModalOpen(true);
   }
 
-  function openEditModal(tour: TourRecord) {
+  async function openEditModal(tour: TourRecord) {
+    try {
+      if (!(await ensureSession())) return;
+    } catch (sessionError) {
+      messageApi.error(
+        sessionError instanceof Error
+          ? sessionError.message
+          : 'Не удалось проверить сессию',
+      );
+      return;
+    }
     setSelectedTour(tour);
     setDestinationSearch(
       destinationsById.get(tour.destination_id)?.name ?? '',
@@ -527,7 +548,7 @@ function ToursPage() {
       start_date: start_date.format('YYYY-MM-DD'),
     };
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         selectedTour ? `/api/tours/${selectedTour.id}` : '/api/tours/',
         {
           method: selectedTour ? 'PUT' : 'POST',
@@ -556,7 +577,7 @@ function ToursPage() {
   async function deleteTour(tour: TourRecord) {
     setError(null);
     try {
-      const response = await fetch(`/api/tours/${tour.id}`, { method: 'DELETE' });
+      const response = await apiFetch(`/api/tours/${tour.id}`, { method: 'DELETE' });
       if (!response.ok) {
         throw await getRequestError(response, 'Не удалось удалить тур');
       }

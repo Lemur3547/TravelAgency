@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Layout, Menu, theme } from 'antd';
+import { Layout, Menu, message, theme } from 'antd';
 import {
   UserOutlined,
   CompassOutlined,
@@ -8,6 +8,7 @@ import {
   FileTextOutlined,
   GlobalOutlined,
   SettingOutlined,
+  LogoutOutlined,
 } from '@ant-design/icons';
 
 const { Sider, Content } = Layout;
@@ -18,7 +19,13 @@ const pageTitles: Record<string, string> = {
   '/tours': 'Туры',
 };
 
-function MainLayout({ children }: { children: ReactNode }) {
+function MainLayout({
+  children,
+  onLogout,
+}: {
+  children: ReactNode;
+  onLogout: () => void;
+}) {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -67,7 +74,29 @@ function MainLayout({ children }: { children: ReactNode }) {
       icon: <SettingOutlined />,
       label: 'Настройки',
     },
+    {
+      key: 'logout',
+      icon: <LogoutOutlined />,
+      label: 'Выход',
+      danger: true,
+    },
   ];
+
+  const logout = async () => {
+    try {
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+      });
+      if (!response.ok) {
+        throw new Error(`Не удалось завершить сеанс (${response.status})`);
+      }
+      onLogout();
+    } catch (error) {
+      message.error(
+        error instanceof Error ? error.message : 'Не удалось завершить сеанс',
+      );
+    }
+  };
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -113,6 +142,7 @@ function MainLayout({ children }: { children: ReactNode }) {
             if (key === 'clients') navigate('/clients');
             if (key === 'tour-operators') navigate('/tour-operators');
             if (key === 'tours') navigate('/tours');
+            if (key === 'logout') void logout();
           }}
         />
       </Sider>

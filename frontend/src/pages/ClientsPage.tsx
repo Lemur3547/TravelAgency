@@ -27,6 +27,7 @@ import {
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { PhoneInput } from '../components/PhoneInput';
+import { apiFetch, ensureSession } from '../utils/api';
 import { formatPhone, isValidPhone } from '../utils/phone';
 
 interface ClientRecord {
@@ -236,14 +237,34 @@ function ClientsPage() {
     : DEFAULT_PAGE_SIZE;
   const searchText = searchParams.get('search') ?? '';
 
-  function openCreateModal() {
+  async function openCreateModal() {
+    try {
+      if (!(await ensureSession())) return;
+    } catch (sessionError) {
+      messageApi.error(
+        sessionError instanceof Error
+          ? sessionError.message
+          : 'Не удалось проверить сессию',
+      );
+      return;
+    }
     setSelectedClient(null);
     setExpandedDocumentPanels([]);
     form.resetFields();
     setModalOpen(true);
   }
 
-  function openEditModal(client: ClientRecord) {
+  async function openEditModal(client: ClientRecord) {
+    try {
+      if (!(await ensureSession())) return;
+    } catch (sessionError) {
+      messageApi.error(
+        sessionError instanceof Error
+          ? sessionError.message
+          : 'Не удалось проверить сессию',
+      );
+      return;
+    }
     setSelectedClient(client);
     setExpandedDocumentPanels([]);
     form.setFieldsValue({
@@ -296,7 +317,7 @@ function ClientsPage() {
     };
 
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         selectedClient ? `/api/clients/${selectedClient.id}` : '/api/clients/',
         {
           method: selectedClient ? 'PUT' : 'POST',
@@ -352,7 +373,7 @@ function ClientsPage() {
   async function deleteClient(client: ClientRecord) {
     setError(null);
     try {
-      const response = await fetch(`/api/clients/${client.id}`, {
+      const response = await apiFetch(`/api/clients/${client.id}`, {
         method: 'DELETE',
       });
       if (!response.ok) {
@@ -382,7 +403,7 @@ function ClientsPage() {
         if (offset > 0) params.set('offset', String(offset));
         const search = searchText.trim();
         if (search) params.set('search', search);
-        const response = await fetch(`/api/clients/?${params}`, {
+        const response = await apiFetch(`/api/clients/?${params}`, {
           signal: controller.signal,
         });
         if (!response.ok) {

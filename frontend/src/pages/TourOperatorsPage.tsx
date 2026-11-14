@@ -23,6 +23,7 @@ import {
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { PhoneInput } from '../components/PhoneInput';
+import { apiFetch, ensureSession } from '../utils/api';
 import { formatPhone, isValidPhone } from '../utils/phone';
 
 interface TourOperatorRecord {
@@ -107,7 +108,7 @@ function TourOperatorsPage() {
         const params = new URLSearchParams();
         const search = searchText.trim();
         if (search) params.set('search', search);
-        const response = await fetch(`/api/tour-operators/?${params}`, {
+        const response = await apiFetch(`/api/tour-operators/?${params}`, {
           signal: controller.signal,
         });
         if (!response.ok) {
@@ -137,14 +138,34 @@ function TourOperatorsPage() {
     return () => controller.abort();
   }, [reloadKey, searchParams, searchText]);
 
-  function openCreateModal() {
+  async function openCreateModal() {
+    try {
+      if (!(await ensureSession())) return;
+    } catch (sessionError) {
+      messageApi.error(
+        sessionError instanceof Error
+          ? sessionError.message
+          : 'Не удалось проверить сессию',
+      );
+      return;
+    }
     setSelectedOperator(null);
     form.resetFields();
     form.setFieldsValue({ is_active: true });
     setModalOpen(true);
   }
 
-  function openEditModal(operator: TourOperatorRecord) {
+  async function openEditModal(operator: TourOperatorRecord) {
+    try {
+      if (!(await ensureSession())) return;
+    } catch (sessionError) {
+      messageApi.error(
+        sessionError instanceof Error
+          ? sessionError.message
+          : 'Не удалось проверить сессию',
+      );
+      return;
+    }
     setSelectedOperator(operator);
     form.setFieldsValue({
       ...operator,
@@ -156,7 +177,7 @@ function TourOperatorsPage() {
     setSaving(true);
     setError(null);
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         selectedOperator
           ? `/api/tour-operators/${selectedOperator.id}`
           : '/api/tour-operators/',
@@ -191,7 +212,7 @@ function TourOperatorsPage() {
   async function deleteOperator(operator: TourOperatorRecord) {
     setError(null);
     try {
-      const response = await fetch(`/api/tour-operators/${operator.id}`, {
+      const response = await apiFetch(`/api/tour-operators/${operator.id}`, {
         method: 'DELETE',
       });
       if (!response.ok) {

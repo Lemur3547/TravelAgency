@@ -3,9 +3,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .. import crud, schemas
+from ..auth_dependencies import get_current_employee
 from ..database import get_db
 
-router = APIRouter(prefix="/api/tours", tags=["Tours"])
+router = APIRouter(
+    prefix="/api/tours",
+    tags=["Tours"],
+    dependencies=[Depends(get_current_employee)],
+)
 
 
 @router.get("/", response_model=list[schemas.TourResponse])
