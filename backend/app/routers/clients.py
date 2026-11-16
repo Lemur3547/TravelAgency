@@ -95,4 +95,11 @@ def delete_client(client_id: int, db: Session = Depends(get_db)):
     db_client = crud.get_client(db, client_id)
     if db_client is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Клиент не найден")
-    crud.delete_client(db, db_client)
+    try:
+        crud.delete_client(db, db_client)
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Нельзя удалить клиента, у которого есть заявки",
+        ) from exc

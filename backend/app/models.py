@@ -58,6 +58,8 @@ class Client(Base):
         onupdate=lambda: datetime.datetime.now(datetime.timezone.utc),
     )
 
+    requests = relationship("ClientRequest", back_populates="client")
+
 
 class Role(Base):
     __tablename__ = "roles"
@@ -102,6 +104,7 @@ class Employee(Base):
         back_populates="employee",
         cascade="all, delete-orphan",
     )
+    requests = relationship("ClientRequest", back_populates="employee")
 
 
 class EmployeeRefreshSession(Base):
@@ -205,3 +208,67 @@ class Tour(Base):
     @property
     def departure_city(self):
         return self.departure.name
+
+
+class ClientRequest(Base):
+    __tablename__ = "client_requests"
+
+    id = Column(Integer, primary_key=True)
+    client_id = Column(Integer, ForeignKey("clients.id"), nullable=False, index=True)
+    employee_id = Column(Integer, ForeignKey("employees.id"), nullable=False, index=True)
+    departure_city_id = Column(
+        Integer, ForeignKey("departure_cities.id"), nullable=False, index=True
+    )
+    desired_direction = Column(JSON, nullable=False)
+    desired_start_date = Column(Date, nullable=True)
+    desired_end_date = Column(Date, nullable=True)
+    min_nights = Column(Integer, nullable=True)
+    max_nights = Column(Integer, nullable=True)
+    tourists = Column(Integer, nullable=False)
+    min_budget = Column(Numeric(12, 2), nullable=True)
+    max_budget = Column(Numeric(12, 2), nullable=True)
+    wishes = Column(Text, nullable=True)
+    status = Column(String(30), nullable=False, default="Новая")
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.datetime.now(datetime.timezone.utc),
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.datetime.now(datetime.timezone.utc),
+        onupdate=lambda: datetime.datetime.now(datetime.timezone.utc),
+    )
+
+    client = relationship("Client", back_populates="requests")
+    employee = relationship("Employee", back_populates="requests")
+    departure = relationship("DepartureCity")
+
+    @property
+    def departure_city(self):
+        return self.departure.name
+
+    @property
+    def client_name(self):
+        return " ".join(
+            part for part in (
+                self.client.last_name,
+                self.client.first_name,
+                self.client.father_name,
+            ) if part
+        )
+
+    @property
+    def client_phone(self):
+        return self.client.phone
+
+    @property
+    def employee_name(self):
+        return " ".join(
+            part for part in (
+                self.employee.last_name,
+                self.employee.first_name,
+                self.employee.father_name,
+            ) if part
+        )

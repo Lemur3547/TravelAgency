@@ -15,6 +15,7 @@ const { Sider, Content } = Layout;
 
 const pageTitles: Record<string, string> = {
   '/clients': 'База клиентов',
+  '/requests': 'Заявки клиентов',
   '/tour-operators': 'Туроператоры',
   '/tours': 'Туры',
 };
@@ -60,9 +61,14 @@ function MainLayout({
       label: 'Туроператоры',
     },
     {
-      key: 'tours',
+      key: 'requests',
       icon: <CompassOutlined />,
-      label: 'Заявки и Туры',
+      label: 'Заявки клиентов',
+    },
+    {
+      key: 'tours',
+      icon: <GlobalOutlined />,
+      label: 'Туры',
     },
     {
       key: 'documents',
@@ -132,14 +138,17 @@ function MainLayout({
               ? ['clients']
               : location.pathname === '/tour-operators'
                 ? ['tour-operators']
-                  : location.pathname === '/tours'
-                    ? ['tours']
+                : location.pathname === '/tours'
+                  ? ['tours']
+                  : location.pathname === '/requests'
+                    ? ['requests']
                   : []
           }
           mode="inline"
           items={menuItems}
           onClick={({ key }) => {
             if (key === 'clients') navigate('/clients');
+            if (key === 'requests') navigate('/requests');
             if (key === 'tour-operators') navigate('/tour-operators');
             if (key === 'tours') navigate('/tours');
             if (key === 'logout') void logout();

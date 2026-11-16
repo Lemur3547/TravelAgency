@@ -194,6 +194,87 @@ class ClientPageResponse(BaseModel):
     total: int
 
 
+RequestStatus = Literal["Новая", "В работе", "Оформлена", "Отменена"]
+
+
+class DesiredDirectionItem(BaseModel):
+    kind: Literal["country", "destination"]
+    id: int = Field(..., gt=0)
+
+
+class ClientRequestFields(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    client_id: int = Field(..., gt=0)
+    departure_city_id: int = Field(..., gt=0)
+    desired_direction: list[DesiredDirectionItem] = Field(..., min_length=1)
+    desired_start_date: Optional[date] = None
+    desired_end_date: Optional[date] = None
+    min_nights: Optional[int] = Field(None, ge=1, le=30)
+    max_nights: Optional[int] = Field(None, ge=1, le=30)
+    tourists: int = Field(..., ge=1, le=9)
+    min_budget: Optional[Decimal] = Field(None, ge=0, max_digits=12, decimal_places=2)
+    max_budget: Optional[Decimal] = Field(None, ge=0, max_digits=12, decimal_places=2)
+    wishes: Optional[str] = Field(None, max_length=5000)
+
+    @model_validator(mode="after")
+    def validate_ranges(self):
+        direction_keys = {
+            (item.kind, item.id) for item in self.desired_direction
+        }
+        if len(direction_keys) != len(self.desired_direction):
+            raise ValueError("Направления не должны повторяться")
+
+        if (self.desired_start_date is None) != (self.desired_end_date is None):
+            raise ValueError("Укажите обе даты желаемого периода")
+        if (
+            self.desired_start_date is not None
+            and self.desired_end_date is not None
+            and self.desired_start_date > self.desired_end_date
+        ):
+            raise ValueError("Дата начала не может быть позже даты окончания")
+
+        if (self.min_nights is None) != (self.max_nights is None):
+            raise ValueError("Укажите минимальную и максимальную продолжительность")
+        if (
+            self.min_nights is not None
+            and self.max_nights is not None
+            and self.min_nights > self.max_nights
+        ):
+            raise ValueError("Минимальная продолжительность не может превышать максимальную")
+
+        if (
+            self.min_budget is not None
+            and self.max_budget is not None
+            and self.min_budget > self.max_budget
+        ):
+            raise ValueError("Минимальный бюджет не может превышать максимальный")
+        return self
+
+
+class ClientRequestCreate(ClientRequestFields):
+    pass
+
+
+class ClientRequestUpdate(ClientRequestFields):
+    status: RequestStatus
+
+
+class ClientRequestResponse(ClientRequestFields):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    employee_id: int
+    client_name: str
+    client_phone: str
+    employee_name: str
+    departure_city: str
+    desired_direction_names: list[str]
+    status: RequestStatus
+    created_at: datetime
+    updated_at: datetime
+
+
 class TourOperatorBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=50)
     legal_name: str = Field(..., min_length=1, max_length=255)

@@ -39,6 +39,22 @@ The destinations directory stores unique country-city pairs:
 
 There are no update or delete operations for destinations.
 
+## Client requests
+
+Run `alembic upgrade head` from `backend/` to add the `client_requests` table.
+The authenticated `/api/requests/` endpoints support listing, creating, reading,
+updating, and deleting client requests. The employee creating a request is
+recorded automatically; its initial status is `Новая`.
+
+Requests require a departure city and store selected countries and destinations
+as JSON direction entries (`{"kind":"country","id":1}` or
+`{"kind":"destination","id":1}`), optional period dates, optional night and
+budget ranges, tourist count, and wishes. Range consistency and field limits
+are validated by the API. Country, destination, and departure-city endpoints
+accept `search` and `limit` query parameters for autocomplete. The frontend is
+available at `/requests`; it supports searching clients and creating a client
+without leaving the request form.
+
 ## Tours API
 
 Run `alembic upgrade head` from `backend/` to create the tours table. The

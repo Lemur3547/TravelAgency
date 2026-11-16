@@ -2,7 +2,7 @@ from typing import List, Optional
 from decimal import Decimal, ROUND_HALF_UP
 
 from sqlalchemy import func, and_, or_
-from sqlalchemy.orm import Session, aliased
+from sqlalchemy.orm import Session, aliased, joinedload
 
 from . import models, schemas
 
@@ -160,24 +160,37 @@ def delete_tour_operator(db: Session, db_tour_operator: models.TourOperator) -> 
     db.commit()
 
 
-def get_destinations(db: Session) -> List[models.Destination]:
-    return (
+def get_destinations(
+    db: Session,
+    search: Optional[str] = None,
+    limit: Optional[int] = None,
+) -> List[models.Destination]:
+    query = (
         db.query(models.Destination)
         .order_by(
             models.Destination.country_id,
             models.Destination.name,
             models.Destination.id,
         )
-        .all()
     )
+    if search:
+        query = query.filter(models.Destination.name.ilike(f"%{search}%"))
+    if limit is not None:
+        query = query.limit(limit)
+    return query.all()
 
 
-def get_countries(db: Session) -> List[models.Country]:
-    return (
-        db.query(models.Country)
-        .order_by(models.Country.name, models.Country.id)
-        .all()
-    )
+def get_countries(
+    db: Session,
+    search: Optional[str] = None,
+    limit: Optional[int] = None,
+) -> List[models.Country]:
+    query = db.query(models.Country).order_by(models.Country.name, models.Country.id)
+    if search:
+        query = query.filter(models.Country.name.ilike(f"%{search}%"))
+    if limit is not None:
+        query = query.limit(limit)
+    return query.all()
 
 
 def get_destinations_by_country_slug(
@@ -234,12 +247,19 @@ def create_destination(
     return db_destination
 
 
-def get_departure_cities(db: Session) -> List[models.DepartureCity]:
-    return (
-        db.query(models.DepartureCity)
-        .order_by(models.DepartureCity.name, models.DepartureCity.id)
-        .all()
+def get_departure_cities(
+    db: Session,
+    search: Optional[str] = None,
+    limit: Optional[int] = None,
+) -> List[models.DepartureCity]:
+    query = db.query(models.DepartureCity).order_by(
+        models.DepartureCity.name, models.DepartureCity.id
     )
+    if search:
+        query = query.filter(models.DepartureCity.name.ilike(f"%{search}%"))
+    if limit is not None:
+        query = query.limit(limit)
+    return query.all()
 
 
 def create_departure_city(
@@ -302,4 +322,119 @@ def update_tour(
 
 def delete_tour(db: Session, db_tour: models.Tour) -> None:
     db.delete(db_tour)
+    db.commit()
+
+
+def _attach_request_direction_names(
+    db: Session,
+    requests: List[models.ClientRequest],
+) -> List[models.ClientRequest]:
+    country_ids = {
+        item["id"]
+        for request in requests
+        for item in request.desired_direction
+        if item["kind"] == "country"
+    }
+    destination_ids = {
+        item["id"]
+        for request in requests
+        for item in request.desired_direction
+        if item["kind"] == "destination"
+    }
+    country_names = dict(
+        db.query(models.Country.id, models.Country.name)
+        .filter(models.Country.id.in_(country_ids))
+        .all()
+    ) if country_ids else {}
+    parent = aliased(models.Destination)
+    destination_rows = (
+        db.query(
+            models.Destination.id,
+            models.Destination.name,
+            models.Country.name,
+            parent.name,
+        )
+        .join(models.Country, models.Destination.country_id == models.Country.id)
+        .outerjoin(parent, models.Destination.parent_id == parent.id)
+        .filter(models.Destination.id.in_(destination_ids))
+        .all()
+    ) if destination_ids else []
+    destination_names = {
+        destination_id: ", ".join(filter(None, (name, parent_name or country_name)))
+        for destination_id, name, country_name, parent_name in destination_rows
+    }
+
+    for request in requests:
+        request.desired_direction_names = [
+            country_names.get(item["id"], "Страна не найдена")
+            if item["kind"] == "country"
+            else destination_names.get(item["id"], "Направление не найдено")
+            for item in request.desired_direction
+        ]
+    return requests
+
+
+def get_client_requests(db: Session) -> List[models.ClientRequest]:
+    requests = (
+        db.query(models.ClientRequest)
+        .options(
+            joinedload(models.ClientRequest.client),
+            joinedload(models.ClientRequest.employee),
+            joinedload(models.ClientRequest.departure),
+        )
+        .order_by(models.ClientRequest.created_at.desc(), models.ClientRequest.id.desc())
+        .all()
+    )
+    return _attach_request_direction_names(db, requests)
+
+
+def get_client_request(
+    db: Session,
+    request_id: int,
+) -> Optional[models.ClientRequest]:
+    request = (
+        db.query(models.ClientRequest)
+        .options(
+            joinedload(models.ClientRequest.client),
+            joinedload(models.ClientRequest.employee),
+            joinedload(models.ClientRequest.departure),
+        )
+        .filter(models.ClientRequest.id == request_id)
+        .first()
+    )
+    return _attach_request_direction_names(db, [request])[0] if request else None
+
+
+def create_client_request(
+    db: Session,
+    client_request: schemas.ClientRequestCreate,
+    employee_id: int,
+) -> models.ClientRequest:
+    data = client_request.model_dump()
+    data["desired_direction"] = [
+        item.model_dump() for item in client_request.desired_direction
+    ]
+    db_request = models.ClientRequest(**data, employee_id=employee_id)
+    db.add(db_request)
+    db.commit()
+    return get_client_request(db, db_request.id)
+
+
+def update_client_request(
+    db: Session,
+    db_request: models.ClientRequest,
+    client_request: schemas.ClientRequestUpdate,
+) -> models.ClientRequest:
+    data = client_request.model_dump()
+    data["desired_direction"] = [
+        item.model_dump() for item in client_request.desired_direction
+    ]
+    for field, value in data.items():
+        setattr(db_request, field, value)
+    db.commit()
+    return get_client_request(db, db_request.id)
+
+
+def delete_client_request(db: Session, db_request: models.ClientRequest) -> None:
+    db.delete(db_request)
     db.commit()

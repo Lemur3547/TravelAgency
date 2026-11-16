@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -21,8 +21,13 @@ router = APIRouter(
     "/departures/",
     response_model=list[schemas.DepartureCityResponse],
 )
-def read_departure_cities(db: Session = Depends(get_db)):
-    return crud.get_departure_cities(db)
+def read_departure_cities(
+    search: str | None = Query(None, max_length=100),
+    limit: int | None = Query(None, ge=1, le=50),
+    db: Session = Depends(get_db),
+):
+    normalized_search = search.strip() if search and search.strip() else None
+    return crud.get_departure_cities(db, search=normalized_search, limit=limit)
 
 
 @router.post(

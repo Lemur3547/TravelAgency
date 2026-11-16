@@ -3,6 +3,7 @@ import { Alert, Button, Result, Spin } from 'antd';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import MainLayout from './MainLayout';
 import ClientsPage from './pages/ClientsPage';
+import RequestsPage from './pages/RequestsPage';
 import TourOperatorsPage from './pages/TourOperatorsPage';
 import ToursPage from './pages/ToursPage';
 import { ActivatePage, LoginPage, SetupPage } from './pages/AuthPages';
@@ -123,6 +124,7 @@ function App() {
       >
         <Routes>
           <Route path="/clients" element={<ClientsPage />} />
+          <Route path="/requests" element={<RequestsPage />} />
           <Route path="/tour-operators" element={<TourOperatorsPage />} />
           <Route path="/tours" element={<ToursPage />} />
           <Route path="/" element={<Navigate to="/clients" replace />} />
