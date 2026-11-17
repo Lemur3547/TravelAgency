@@ -26,15 +26,18 @@ import {
   PlusOutlined,
   RightOutlined,
   ReloadOutlined,
+  SearchOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs, { type Dayjs } from 'dayjs';
 import 'dayjs/locale/ru';
 import { ClientForm } from '../components/ClientForm';
 import type { ClientFormValues } from '../components/ClientForm';
+import { CurrencyInput } from '../components/CurrencyInput';
 import { apiFetch, ensureSession } from '../utils/api';
 
 const REQUEST_STATUSES = ['Новая', 'В работе', 'Оформлена', 'Отменена'] as const;
+const MAX_REQUEST_BUDGET = 9999999999.99;
 type RequestStatus = (typeof REQUEST_STATUSES)[number];
 type DirectionKind = 'country' | 'destination';
 
@@ -103,8 +106,8 @@ interface RequestFormValues {
   desired_range?: [Dayjs, Dayjs] | null;
   night_range?: [number, number] | null;
   tourists: number;
-  min_budget?: number | null;
-  max_budget?: number | null;
+  min_budget?: string | null;
+  max_budget?: string | null;
   wishes?: string | null;
   status?: RequestStatus;
 }
@@ -284,6 +287,11 @@ function formatBudget(min: number | null, max: number | null): string {
   return `${currency.format(min)}–${currency.format(max)} ₽`;
 }
 
+function parseBudgetInput(value: string | null | undefined): number | null {
+  if (value == null || value === '') return null;
+  return Number(value.replace(',', '.'));
+}
+
 function getApiError(response: Response, action: string): Promise<Error> {
   return response
     .json()
@@ -309,6 +317,7 @@ function DirectionAutocomplete({
   directionNames: Map<string, string>;
 }) {
   const [input, setInput] = useState('');
+  const [isFocused, setIsFocused] = useState(false);
   const [matches, setMatches] = useState<Array<{ value: string; label: string }>>([]);
   const [matchesFor, setMatchesFor] = useState('');
   const [knownNames, setKnownNames] = useState<Map<string, string>>(new Map());
@@ -375,11 +384,23 @@ function DirectionAutocomplete({
       mode="multiple"
       value={value}
       options={availableMatches}
+      open={isFocused && search.length > 0}
+      menuItemSelectedIcon={null}
       placeholder="Введите страну или направление"
+      suffixIcon={<SearchOutlined />}
       notFoundContent={loading ? 'Поиск...' : search.length < 2 ? null : 'Ничего не найдено'}
       filterOption={false}
+      onFocus={() => {
+        setIsFocused(true);
+        setInput('');
+        setMatchesFor('');
+        setLoading(false);
+      }}
+      onBlur={() => setIsFocused(false)}
+      onSelect={() => setIsFocused(false)}
       onSearch={(searchText) => {
         const nextSearch = searchText.trim();
+        setIsFocused(true);
         setInput(searchText);
         setMatchesFor('');
         setLoading(nextSearch.length >= 2);
@@ -387,6 +408,9 @@ function DirectionAutocomplete({
       onChange={(nextValues: string[]) => {
         const selectedValues = nextValues.filter((item) => !value.includes(item));
         if (selectedValues.length) {
+          setInput('');
+          setMatchesFor('');
+          setLoading(false);
           setKnownNames((current) => {
             const next = new Map(current);
             selectedValues.forEach((key) => {
@@ -1079,8 +1103,12 @@ function RequestsPage() {
           ? [request.min_nights, request.max_nights]
           : null,
       tourists: request.tourists,
-      min_budget: request.min_budget,
-      max_budget: request.max_budget,
+      min_budget: request.min_budget === null
+        ? null
+        : String(request.min_budget).replace('.', ','),
+      max_budget: request.max_budget === null
+        ? null
+        : String(request.max_budget).replace('.', ','),
       wishes: request.wishes,
       status: request.status,
     });
@@ -1105,8 +1133,8 @@ function RequestsPage() {
       min_nights: minNights ?? null,
       max_nights: maxNights ?? null,
       tourists: values.tourists,
-      min_budget: values.min_budget ?? null,
-      max_budget: values.max_budget ?? null,
+      min_budget: parseBudgetInput(values.min_budget),
+      max_budget: parseBudgetInput(values.max_budget),
       wishes: values.wishes?.trim() || null,
       ...(selectedRequest ? { status: values.status } : {}),
     };
@@ -1433,22 +1461,23 @@ function RequestsPage() {
                 validateTrigger="onBlur"
                 rules={[
                   {
-                    validator: (_, value: number | null | undefined) => {
-                      const max = form.getFieldValue('max_budget') as number | null | undefined;
-                      return value == null || max == null || value <= max
+                    validator: (_, value: string | null | undefined) => {
+                      const budget = parseBudgetInput(value);
+                      const max = parseBudgetInput(
+                        form.getFieldValue('max_budget') as string | null | undefined,
+                      );
+                      if (budget === null) return Promise.resolve();
+                      if (budget < 0 || budget > MAX_REQUEST_BUDGET) {
+                        return Promise.reject(new Error('Бюджет должен быть от 0 до 9 999 999 999,99 ₽'));
+                      }
+                      return max === null || budget <= max
                         ? Promise.resolve()
                         : Promise.reject(new Error('Минимальный бюджет не может быть больше максимального'));
                     },
                   },
                 ]}
               >
-                <InputNumber
-                  min={0}
-                  max={9999999999.99}
-                  precision={2}
-                  placeholder="От"
-                  style={{ width: '100%' }}
-                />
+                <CurrencyInput placeholder="От" style={{ width: '100%' }} />
               </Form.Item>
             </Col>
             <Col span={12}>
@@ -1458,22 +1487,23 @@ function RequestsPage() {
                 validateTrigger="onBlur"
                 rules={[
                   {
-                    validator: (_, value: number | null | undefined) => {
-                      const min = form.getFieldValue('min_budget') as number | null | undefined;
-                      return value == null || min == null || min <= value
+                    validator: (_, value: string | null | undefined) => {
+                      const budget = parseBudgetInput(value);
+                      const min = parseBudgetInput(
+                        form.getFieldValue('min_budget') as string | null | undefined,
+                      );
+                      if (budget === null) return Promise.resolve();
+                      if (budget < 0 || budget > MAX_REQUEST_BUDGET) {
+                        return Promise.reject(new Error('Бюджет должен быть от 0 до 9 999 999 999,99 ₽'));
+                      }
+                      return min === null || min <= budget
                         ? Promise.resolve()
                         : Promise.reject(new Error('Максимальный бюджет не может быть меньше минимального'));
                     },
                   },
                 ]}
               >
-                <InputNumber
-                  min={0}
-                  max={9999999999.99}
-                  precision={2}
-                  placeholder="До"
-                  style={{ width: '100%' }}
-                />
+                <CurrencyInput placeholder="До" style={{ width: '100%' }} />
               </Form.Item>
             </Col>
           </Row>
