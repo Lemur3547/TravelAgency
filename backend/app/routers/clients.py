@@ -3,13 +3,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .. import crud, schemas
-from ..auth_dependencies import get_current_employee
+from ..auth_dependencies import require_roles
 from ..database import get_db
 
 router = APIRouter(
     prefix="/api/clients",
     tags=["Clients"],
-    dependencies=[Depends(get_current_employee)],
+    dependencies=[Depends(require_roles("client_manager", "director"))],
 )
 
 _REQUIRED_FIELDS = {

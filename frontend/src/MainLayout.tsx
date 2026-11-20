@@ -54,9 +54,11 @@ const pageTitles: Record<string, string> = {
 function MainLayout({
   children,
   onLogout,
+  roleSlug,
 }: {
   children: ReactNode;
   onLogout: () => void;
+  roleSlug: string;
 }) {
   const [employee, setEmployee] = useState<CurrentEmployee | null>(null);
   const location = useLocation();
@@ -111,33 +113,45 @@ function MainLayout({
       key: 'clients',
       icon: <UserOutlined />,
       label: 'Клиенты',
+      roles: ['client_manager', 'director'],
     },
     {
       key: 'tour-operators',
       icon: <GlobalOutlined />,
       label: 'Туроператоры',
+      roles: ['product_manager', 'director'],
     },
     {
       key: 'requests',
       icon: <CompassOutlined />,
       label: 'Заявки',
+      roles: ['client_manager', 'director'],
     },
     {
       key: 'tours',
       icon: <GlobalOutlined />,
       label: 'Туры',
+      roles: ['client_manager', 'product_manager', 'director'],
     },
     {
       key: 'orders',
       icon: <ShoppingCartOutlined />,
       label: 'Заказы',
+      roles: ['client_manager', 'director'],
     },
     {
       key: 'employees',
       icon: <TeamOutlined />,
       label: 'Сотрудники',
+      roles: ['admin', 'director'],
     },
-  ];
+  ]
+    .filter((item) => item.roles.includes(roleSlug))
+    .map((item) => ({
+      key: item.key,
+      icon: item.icon,
+      label: item.label,
+    }));
 
   const logout = async () => {
     try {

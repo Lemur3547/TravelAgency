@@ -3,13 +3,15 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .. import crud, schemas
-from ..auth_dependencies import get_current_employee
+from ..auth_dependencies import require_roles
 from ..database import get_db
 
 router = APIRouter(
     prefix="/api/tour-operators",
     tags=["Tour operators"],
-    dependencies=[Depends(get_current_employee)],
+    dependencies=[
+        Depends(require_roles("client_manager", "product_manager", "director"))
+    ],
 )
 
 
@@ -37,6 +39,7 @@ def read_tour_operator(tour_operator_id: int, db: Session = Depends(get_db)):
     "/",
     response_model=schemas.TourOperatorResponse,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_roles("product_manager", "director"))],
 )
 def create_tour_operator(
     tour_operator: schemas.TourOperatorCreate,
@@ -55,6 +58,7 @@ def create_tour_operator(
 @router.put(
     "/{tour_operator_id}",
     response_model=schemas.TourOperatorResponse,
+    dependencies=[Depends(require_roles("product_manager", "director"))],
 )
 def update_tour_operator(
     tour_operator_id: int,
@@ -88,6 +92,7 @@ def update_tour_operator(
 @router.delete(
     "/{tour_operator_id}",
     status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_roles("product_manager", "director"))],
 )
 def delete_tour_operator(tour_operator_id: int, db: Session = Depends(get_db)):
     db_tour_operator = crud.get_tour_operator(db, tour_operator_id)

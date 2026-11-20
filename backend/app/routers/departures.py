@@ -3,13 +3,15 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .. import crud, schemas
-from ..auth_dependencies import get_current_employee
+from ..auth_dependencies import require_roles
 from ..database import get_db
 
 router = APIRouter(
     prefix="/api",
     tags=["Departure cities"],
-    dependencies=[Depends(get_current_employee)],
+    dependencies=[
+        Depends(require_roles("client_manager", "product_manager", "director"))
+    ],
 )
 
 
@@ -34,6 +36,7 @@ def read_departure_cities(
     "/departures",
     response_model=schemas.DepartureCityResponse,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_roles("product_manager", "director"))],
 )
 def create_departure_city(
     departure_city: schemas.DepartureCityCreate,

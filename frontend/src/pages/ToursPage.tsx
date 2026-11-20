@@ -238,7 +238,7 @@ function parseClientPrice(value: string): number {
   return Number(value.replace(',', '.'));
 }
 
-function ToursPage() {
+function ToursPage({ canManage = true }: { canManage?: boolean }) {
   const [tours, setTours] = useState<TourRecord[]>([]);
   const [operators, setOperators] = useState<TourOperator[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
@@ -400,6 +400,7 @@ function ToursPage() {
   );
 
   async function openCreateModal() {
+    if (!canManage) return;
     try {
       if (!(await ensureSession())) return;
     } catch (sessionError) {
@@ -421,6 +422,7 @@ function ToursPage() {
   }
 
   async function openEditModal(tour: TourRecord) {
+    if (!canManage) return;
     try {
       if (!(await ensureSession())) return;
     } catch (sessionError) {
@@ -591,7 +593,9 @@ function ToursPage() {
       render: (available: boolean) =>
         available ? <Tag color="green">Доступен</Tag> : <Tag>Недоступен</Tag>,
     },
-    {
+  ];
+
+  const actionColumn: ColumnsType<TourRecord>[number] = {
       title: 'Действия',
       key: 'actions',
       width: 110,
@@ -618,8 +622,8 @@ function ToursPage() {
           </Popconfirm>
         </Space>
       ),
-    },
-  ];
+  };
+  if (canManage) columns.push(actionColumn);
 
   return (
     <>
@@ -640,18 +644,20 @@ function ToursPage() {
               Каталог туров и расчеты агентской комиссии
             </Typography.Text>
           </div>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={openCreateModal}
-            disabled={
-              operators.length === 0 ||
-              destinations.length === 0 ||
-              departureCities.length === 0
-            }
-          >
-            Добавить тур
-          </Button>
+          {canManage && (
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={openCreateModal}
+              disabled={
+                operators.length === 0 ||
+                destinations.length === 0 ||
+                departureCities.length === 0
+              }
+            >
+              Добавить тур
+            </Button>
+          )}
         </Space>
         {error && (
           <Alert
@@ -668,21 +674,21 @@ function ToursPage() {
           }
         />
         )}
-        {catalogsLoaded && operators.length === 0 && (
+        {canManage && catalogsLoaded && operators.length === 0 && (
           <Alert
             type="warning"
             showIcon
             message="Добавьте активного туроператора, чтобы создавать туры."
           />
         )}
-        {catalogsLoaded && destinations.length === 0 && (
+        {canManage && catalogsLoaded && destinations.length === 0 && (
           <Alert
             type="warning"
             showIcon
             message="Сначала добавьте направления в справочник."
           />
         )}
-        {catalogsLoaded && departureCities.length === 0 && (
+        {canManage && catalogsLoaded && departureCities.length === 0 && (
           <Alert
             type="warning"
             showIcon

@@ -14,7 +14,69 @@ import { ensureSession } from './utils/api';
 type AppState =
   | { status: 'loading' }
   | { status: 'error'; message: string }
-  | { status: 'ready'; authenticated: boolean; setupAvailable: boolean };
+  | {
+      status: 'ready';
+      authenticated: true;
+      setupAvailable: boolean;
+      roleSlug: EmployeeRoleSlug;
+    }
+  | { status: 'ready'; authenticated: false; setupAvailable: boolean };
+
+type EmployeeRoleSlug =
+  | 'client_manager'
+  | 'product_manager'
+  | 'admin'
+  | 'director';
+
+const roleRoutes: Record<EmployeeRoleSlug, string[]> = {
+  client_manager: ['/clients', '/requests', '/orders', '/tours'],
+  product_manager: ['/tour-operators', '/tours'],
+  admin: ['/employees'],
+  director: [
+    '/clients',
+    '/requests',
+    '/orders',
+    '/tour-operators',
+    '/tours',
+    '/employees',
+  ],
+};
+
+const roleHome: Record<EmployeeRoleSlug, string> = {
+  client_manager: '/clients',
+  product_manager: '/tours',
+  admin: '/employees',
+  director: '/clients',
+};
+
+async function getCurrentRole(signal?: AbortSignal): Promise<EmployeeRoleSlug> {
+  const response = await fetch('/api/auth/me', { signal });
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response));
+  }
+  const data: unknown = await response.json();
+  if (
+    typeof data !== 'object' ||
+    data === null ||
+    !('role' in data) ||
+    typeof data.role !== 'object' ||
+    data.role === null ||
+    !('slug' in data.role) ||
+    typeof data.role.slug !== 'string' ||
+    !Object.hasOwn(roleRoutes, data.role.slug)
+  ) {
+    throw new Error('Сервер вернул неизвестную роль сотрудника');
+  }
+  switch (data.role.slug) {
+    case 'client_manager':
+    case 'product_manager':
+    case 'admin':
+    case 'director':
+      return data.role.slug;
+    default:
+      throw new Error('Сервер вернул неизвестную роль сотрудника');
+  }
+}
 
 async function getErrorMessage(response: Response): Promise<string> {
   try {
@@ -41,8 +103,12 @@ function App() {
   useEffect(() => {
     const handleUnauthorized = () => {
       setState((current) =>
-        current.status === 'ready'
-          ? { ...current, authenticated: false }
+        current.status === 'ready' && current.authenticated
+          ? {
+              status: 'ready',
+              authenticated: false,
+              setupAvailable: current.setupAvailable,
+            }
           : current,
       );
       if (!['/setup', '/activate', '/login'].includes(location.pathname)) {
@@ -74,11 +140,22 @@ function App() {
           throw new Error('Сервер вернул некорректный статус первоначальной настройки');
         }
         if (!controller.signal.aborted) {
-          setState({
-            status: 'ready',
-            authenticated,
-            setupAvailable: setupData.available,
-          });
+          if (authenticated) {
+            const roleSlug = await getCurrentRole(controller.signal);
+            if (controller.signal.aborted) return;
+            setState({
+              status: 'ready',
+              authenticated: true,
+              setupAvailable: setupData.available,
+              roleSlug,
+            });
+          } else {
+            setState({
+              status: 'ready',
+              authenticated: false,
+              setupAvailable: setupData.available,
+            });
+          }
         }
       } catch (error) {
         if (!controller.signal.aborted) {
@@ -95,6 +172,27 @@ function App() {
     void loadState();
     return () => controller.abort();
   }, []);
+
+  async function completeAuthentication() {
+    try {
+      const roleSlug = await getCurrentRole();
+      setState({
+        status: 'ready',
+        authenticated: true,
+        setupAvailable: false,
+        roleSlug,
+      });
+      navigate(roleHome[roleSlug], { replace: true });
+    } catch (error) {
+      setState({
+        status: 'error',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Не удалось загрузить роль сотрудника',
+      });
+    }
+  }
 
   if (state.status === 'loading') {
     return <Spin fullscreen tip="Проверка доступа..." />;
@@ -118,11 +216,22 @@ function App() {
 
   const isAuthPath = ['/setup', '/activate', '/login'].includes(location.pathname);
   if (state.authenticated) {
-    if (isAuthPath) return <Navigate to="/" replace />;
+    const home = roleHome[state.roleSlug];
+    if (isAuthPath || location.pathname === '/') {
+      return <Navigate to={home} replace />;
+    }
+    if (!roleRoutes[state.roleSlug].includes(location.pathname)) {
+      return <Navigate to={home} replace />;
+    }
     return (
       <MainLayout
+        roleSlug={state.roleSlug}
         onLogout={() => {
-          setState({ ...state, authenticated: false });
+          setState({
+            status: 'ready',
+            authenticated: false,
+            setupAvailable: state.setupAvailable,
+          });
           navigate('/login', { replace: true });
         }}
       >
@@ -132,9 +241,15 @@ function App() {
           <Route path="/requests" element={<RequestsPage />} />
           <Route path="/orders" element={<OrdersPage />} />
           <Route path="/tour-operators" element={<TourOperatorsPage />} />
-          <Route path="/tours" element={<ToursPage />} />
-          <Route path="/" element={<Navigate to="/clients" replace />} />
-          <Route path="*" element={<Navigate to="/clients" replace />} />
+          <Route
+            path="/tours"
+            element={<ToursPage canManage={state.roleSlug !== 'client_manager'} />}
+          />
+          <Route
+            path="/"
+            element={<Navigate to={home} replace />}
+          />
+          <Route path="*" element={<Navigate to={home} replace />} />
         </Routes>
       </MainLayout>
     );
@@ -153,13 +268,7 @@ function App() {
         path="/setup"
         element={
           <SetupPage
-            onAuthenticated={() =>
-              setState({
-                status: 'ready',
-                authenticated: true,
-                setupAvailable: false,
-              })
-            }
+            onAuthenticated={() => void completeAuthentication()}
           />
         }
       />
@@ -167,13 +276,7 @@ function App() {
         path="/activate"
         element={
           <ActivatePage
-            onAuthenticated={() =>
-              setState({
-                status: 'ready',
-                authenticated: true,
-                setupAvailable: false,
-              })
-            }
+            onAuthenticated={() => void completeAuthentication()}
           />
         }
       />
@@ -181,10 +284,7 @@ function App() {
         path="/login"
         element={
           <LoginPage
-            onAuthenticated={() => {
-              setState({ ...state, authenticated: true });
-              navigate('/', { replace: true });
-            }}
+            onAuthenticated={() => void completeAuthentication()}
           />
         }
       />

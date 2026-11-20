@@ -3,13 +3,15 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .. import crud, schemas
-from ..auth_dependencies import get_current_employee
+from ..auth_dependencies import get_current_employee, require_roles
 from ..database import get_db
 
 router = APIRouter(
     prefix="/api/tours",
     tags=["Tours"],
-    dependencies=[Depends(get_current_employee)],
+    dependencies=[
+        Depends(require_roles("client_manager", "product_manager", "director"))
+    ],
 )
 
 
@@ -30,6 +32,7 @@ def read_tour(tour_id: int, db: Session = Depends(get_db)):
     "/",
     response_model=schemas.TourResponse,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_roles("product_manager", "director"))],
 )
 def create_tour(tour: schemas.TourCreate, db: Session = Depends(get_db)):
     try:
@@ -42,7 +45,11 @@ def create_tour(tour: schemas.TourCreate, db: Session = Depends(get_db)):
         ) from exc
 
 
-@router.put("/{tour_id}", response_model=schemas.TourResponse)
+@router.put(
+    "/{tour_id}",
+    response_model=schemas.TourResponse,
+    dependencies=[Depends(require_roles("product_manager", "director"))],
+)
 def update_tour(
     tour_id: int,
     tour_update: schemas.TourUpdate,
@@ -69,7 +76,11 @@ def update_tour(
         ) from exc
 
 
-@router.delete("/{tour_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{tour_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_roles("product_manager", "director"))],
+)
 def delete_tour(tour_id: int, db: Session = Depends(get_db)):
     db_tour = crud.get_tour(db, tour_id)
     if db_tour is None:

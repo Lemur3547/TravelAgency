@@ -106,6 +106,14 @@ Administrators; neither role can create a Director. Passport and phone values
 use the existing validation rules. Passwords are Argon2-hashed, invite tokens
 are stored as hashes, and refresh tokens are rotated and revocable.
 
+Role access is enforced by the API and reflected in frontend navigation:
+
+- `client_manager` can manage clients, requests, and orders, and read tours and
+  tour-operator, country, destination, and departure-city reference data.
+- `product_manager` can manage tours, tour operators, and reference records.
+- `admin` can manage employee accounts only.
+- `director` has access to all application functions.
+
 Configure `AUTH_SECRET_KEY` with a persistent random secret in deployed
 environments, `AUTH_COOKIE_SECURE=true` when serving over HTTPS, and
 `ACTIVATION_URL_BASE` with the activation page URL. Without `AUTH_SECRET_KEY`,

@@ -3,13 +3,15 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .. import crud, schemas
-from ..auth_dependencies import get_current_employee
+from ..auth_dependencies import require_roles
 from ..database import get_db
 
 router = APIRouter(
     prefix="/api",
     tags=["Destinations"],
-    dependencies=[Depends(get_current_employee)],
+    dependencies=[
+        Depends(require_roles("client_manager", "product_manager", "director"))
+    ],
 )
 
 
@@ -38,6 +40,7 @@ def read_countries(
     "/countries",
     response_model=schemas.CountryResponse,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_roles("product_manager", "director"))],
 )
 def create_country(country: schemas.CountryCreate, db: Session = Depends(get_db)):
     try:
@@ -74,11 +77,13 @@ def read_child_destinations(
     "/destinations",
     response_model=schemas.DestinationResponse,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_roles("product_manager", "director"))],
 )
 @router.post(
     "/destinations/",
     response_model=schemas.DestinationResponse,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_roles("product_manager", "director"))],
 )
 def create_destination(
     destination: schemas.DestinationCreate,
