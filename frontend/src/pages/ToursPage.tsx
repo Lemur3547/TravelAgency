@@ -37,7 +37,7 @@ interface TourRecord {
   departure_city: string;
   hotel_name: string;
   room_type: string;
-  meal_types: string[];
+  meal_type: string;
   start_date: string;
   nights: number;
   tourists: number;
@@ -129,8 +129,7 @@ function parseTour(value: unknown): TourRecord | null {
     typeof tour.departure_city !== 'string' ||
     typeof tour.hotel_name !== 'string' ||
     typeof tour.room_type !== 'string' ||
-    !Array.isArray(tour.meal_types) ||
-    !tour.meal_types.every((meal) => typeof meal === 'string') ||
+    typeof tour.meal_type !== 'string' ||
     typeof tour.start_date !== 'string' ||
     typeof tour.nights !== 'number' ||
     typeof tour.tourists !== 'number' ||
@@ -150,7 +149,7 @@ function parseTour(value: unknown): TourRecord | null {
     departure_city: tour.departure_city,
     hotel_name: tour.hotel_name,
     room_type: tour.room_type,
-    meal_types: tour.meal_types,
+    meal_type: tour.meal_type,
     start_date: tour.start_date,
     nights: tour.nights,
     tourists: tour.tourists,
@@ -256,6 +255,9 @@ function ToursPage() {
   const [reloadKey, setReloadKey] = useState(0);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedTour, setSelectedTour] = useState<TourRecord | null>(null);
+  const today = dayjs().startOf('day');
+  const editingPastTour =
+    !!selectedTour && dayjs(selectedTour.start_date).isBefore(today, 'day');
   const [form] = Form.useForm<TourFormValues>();
   const [messageApi, contextHolder] = message.useMessage();
   const clientPrice = parseClientPrice(Form.useWatch('client_price', form) ?? '');
@@ -414,7 +416,7 @@ function ToursPage() {
     setDestinationSearchActive(false);
     setDepartureCitySearch('');
     setDepartureCitySearchActive(false);
-    form.setFieldsValue({ is_available: true, start_date: dayjs(), tourists: 2 });
+    form.setFieldsValue({ is_available: true, tourists: 2 });
     setModalOpen(true);
   }
 
@@ -439,7 +441,7 @@ function ToursPage() {
     form.setFieldsValue({
       ...tour,
       client_price: String(tour.client_price).replace('.', ','),
-      meal_type: tour.meal_types[0],
+      meal_type: tour.meal_type,
       start_date: dayjs(tour.start_date),
     });
     setModalOpen(true);
@@ -467,7 +469,7 @@ function ToursPage() {
     const payload = {
       ...rest,
       client_price: parseClientPrice(values.client_price),
-      meal_types: [meal_type],
+      meal_type,
       description: values.description ?? '',
       start_date: start_date.format('YYYY-MM-DD'),
     };
@@ -555,10 +557,10 @@ function ToursPage() {
     { title: 'Туристов', dataIndex: 'tourists', key: 'tourists', width: 90 },
     {
       title: 'Питание',
-      dataIndex: 'meal_types',
-      key: 'meal_types',
+      dataIndex: 'meal_type',
+      key: 'meal_type',
       width: 160,
-      render: (meals: string[]) => meals.join(', '),
+      render: (meal: string) => meal,
     },
     {
       title: 'Цена клиенту',
@@ -909,16 +911,36 @@ function ToursPage() {
             <Form.Item
               name="start_date"
               label="Дата начала"
-              rules={[{ required: true, message: 'Выберите дату начала' }]}
+              rules={
+                editingPastTour
+                  ? []
+                  : [
+                      { required: true, message: 'Выберите дату начала' },
+                      {
+                        validator: (_, value: Dayjs | undefined) =>
+                          !value || !value.isBefore(today, 'day')
+                            ? Promise.resolve()
+                            : Promise.reject(
+                                new Error('Дата начала не может быть раньше текущей даты'),
+                              ),
+                      },
+                    ]
+              }
             >
-              <DatePicker format="DD.MM.YYYY" style={{ width: '100%' }} />
+              <DatePicker
+                format="DD.MM.YYYY"
+                style={{ width: '100%' }}
+                disabled={editingPastTour}
+                minDate={today}
+                disabledDate={(date) => date.isBefore(today, 'day')}
+              />
             </Form.Item>
             <Form.Item
               name="nights"
               label="Количество ночей"
               rules={[{ required: true, message: 'Укажите количество ночей' }]}
             >
-              <InputNumber min={1} max={365} precision={0} style={{ width: '100%' }} />
+              <InputNumber min={1} max={30} precision={0} style={{ width: '100%' }} />
             </Form.Item>
             <Form.Item
               name="tourists"
@@ -955,8 +977,8 @@ function ToursPage() {
           <Alert
             type="info"
             showIcon
-            message={
-              <Space direction="vertical" size={0}>
+            title={
+              <Space orientation="vertical" size={0}>
                 <span>Стоимость для агентства: {formatCurrency(agencyPrice)}</span>
                 <span>Комиссия турагентства: {formatCurrency(agencyCommission)}</span>
               </Space>

@@ -82,6 +82,23 @@ function isValidLegalEntityInn(value: string): boolean {
   return (checksum % 11) % 10 === Number(value[9]);
 }
 
+async function getApiErrorMessage(response: Response, fallback: string): Promise<string> {
+  try {
+    const body: unknown = await response.json();
+    if (
+      typeof body === 'object'
+      && body !== null
+      && 'detail' in body
+      && typeof body.detail === 'string'
+    ) {
+      return body.detail;
+    }
+  } catch {
+    return fallback;
+  }
+  return fallback;
+}
+
 function TourOperatorsPage() {
   const [operators, setOperators] = useState<TourOperatorRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -188,6 +205,18 @@ function TourOperatorsPage() {
         },
       );
       if (!response.ok) {
+        if (response.status === 409) {
+          const detail = await getApiErrorMessage(
+            response,
+            'Туроператор с таким ИНН уже зарегистрирован',
+          );
+          Modal.error({
+            title: 'Ошибка',
+            content: detail,
+            style: {top: 400}
+          });
+          return;
+        }
         throw new Error(
           `Не удалось ${selectedOperator ? 'обновить' : 'создать'} туроператора (HTTP ${response.status})`,
         );

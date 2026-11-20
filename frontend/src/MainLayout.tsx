@@ -4,10 +4,7 @@ import { Layout, Menu, message, theme } from 'antd';
 import {
   UserOutlined,
   CompassOutlined,
-  DashboardOutlined,
-  FileTextOutlined,
   GlobalOutlined,
-  SettingOutlined,
   LogoutOutlined,
 } from '@ant-design/icons';
 
@@ -46,14 +43,9 @@ function MainLayout({
   // Описываем пункты нашего бокового меню АИС турагентства
   const menuItems = [
     {
-      key: 'dashboard',
-      icon: <DashboardOutlined />,
-      label: 'Рабочий стол',
-    },
-    {
       key: 'clients',
       icon: <UserOutlined />,
-      label: 'База клиентов',
+      label: 'Клиенты',
     },
     {
       key: 'tour-operators',
@@ -63,22 +55,12 @@ function MainLayout({
     {
       key: 'requests',
       icon: <CompassOutlined />,
-      label: 'Заявки клиентов',
+      label: 'Заявки',
     },
     {
       key: 'tours',
       icon: <GlobalOutlined />,
       label: 'Туры',
-    },
-    {
-      key: 'documents',
-      icon: <FileTextOutlined />,
-      label: 'Договоры и учет',
-    },
-    {
-      key: 'settings',
-      icon: <SettingOutlined />,
-      label: 'Настройки',
     },
     {
       key: 'logout',

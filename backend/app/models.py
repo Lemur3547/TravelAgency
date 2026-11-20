@@ -194,7 +194,7 @@ class Tour(Base):
     departure = relationship("DepartureCity", back_populates="tours")
     hotel_name = Column(String(255), nullable=False)
     room_type = Column(String(100), nullable=False)
-    meal_types = Column(JSON, nullable=False)
+    meal_type = Column(String(50), nullable=False)
     start_date = Column(Date, nullable=False)
     nights = Column(Integer, nullable=False)
     tourists = Column(Integer, nullable=False)

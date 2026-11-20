@@ -404,7 +404,7 @@ class TourBase(BaseModel):
     departure_city_id: int = Field(..., gt=0)
     hotel_name: str = Field(..., min_length=1, max_length=255)
     room_type: str = Field(..., min_length=1, max_length=100)
-    meal_types: list[MealType] = Field(..., min_length=1, max_length=1)
+    meal_type: MealType
     start_date: date
     nights: int = Field(..., ge=1, le=365)
     tourists: int = Field(..., ge=1, le=100)
@@ -429,7 +429,7 @@ class TourUpdate(BaseModel):
     departure_city_id: Optional[int] = Field(None, gt=0)
     hotel_name: Optional[str] = Field(None, min_length=1, max_length=255)
     room_type: Optional[str] = Field(None, min_length=1, max_length=100)
-    meal_types: Optional[list[MealType]] = Field(None, min_length=1, max_length=1)
+    meal_type: Optional[MealType] = None
     start_date: Optional[date] = None
     nights: Optional[int] = Field(None, ge=1, le=365)
     tourists: Optional[int] = Field(None, ge=1, le=100)

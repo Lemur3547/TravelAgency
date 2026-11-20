@@ -387,8 +387,8 @@ function DirectionAutocomplete({
       open={isFocused && search.length > 0}
       menuItemSelectedIcon={null}
       placeholder="Введите страну или направление"
-      suffixIcon={<SearchOutlined />}
-      notFoundContent={loading ? 'Поиск...' : search.length < 2 ? null : 'Ничего не найдено'}
+      suffix={<SearchOutlined />}
+      notFoundContent={loading ? 'Поиск...' : search.length < 2 ? null : 'Пока что мы сюда не летаем.'}
       filterOption={false}
       onFocus={() => {
         setIsFocused(true);
@@ -495,7 +495,8 @@ function DepartureCityAutocomplete({
           : []
       }
       placeholder="Введите город"
-      notFoundContent={loading ? 'Поиск...' : search.length < 2 ? null : 'Город не найден'}
+      notFoundContent={loading ? 'Поиск...' : search.length < 2 ? null : 'Пока что мы не летаем отсюда.'}
+      suffix={<SearchOutlined />}
       filterOption={false}
       onSearch={(searchText) => {
         setInput(searchText);
@@ -937,18 +938,10 @@ function NightsPicker({
                 : value;
             const selected =
               !!previewRange && night >= previewRange[0] && night <= previewRange[1];
-            const isFirst = first === night;
             return (
               <Button
                 key={night}
                 type={selected ? 'primary' : 'text'}
-                style={{
-                  borderRadius:
-                    selected && night !== previewRange?.[0] && night !== previewRange?.[1]
-                      ? 0
-                      : undefined,
-                  opacity: selected && !isFirst ? 0.75 : undefined,
-                }}
                 onMouseEnter={() => setHovered(night)}
                 onMouseLeave={() => setHovered(null)}
                 onClick={() => {
