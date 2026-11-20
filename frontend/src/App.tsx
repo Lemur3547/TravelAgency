@@ -7,6 +7,7 @@ import RequestsPage from './pages/RequestsPage';
 import OrdersPage from './pages/OrdersPage';
 import TourOperatorsPage from './pages/TourOperatorsPage';
 import ToursPage from './pages/ToursPage';
+import EmployeesPage from './pages/EmployeesPage';
 import { ActivatePage, LoginPage, SetupPage } from './pages/AuthPages';
 import { ensureSession } from './utils/api';
 
@@ -44,11 +45,13 @@ function App() {
           ? { ...current, authenticated: false }
           : current,
       );
-      navigate('/login', { replace: true });
+      if (!['/setup', '/activate', '/login'].includes(location.pathname)) {
+        navigate('/login', { replace: true });
+      }
     };
     window.addEventListener('auth:unauthorized', handleUnauthorized);
     return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
-  }, [navigate]);
+  }, [location.pathname, navigate]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -124,6 +127,7 @@ function App() {
         }}
       >
         <Routes>
+          <Route path="/employees" element={<EmployeesPage />} />
           <Route path="/clients" element={<ClientsPage />} />
           <Route path="/requests" element={<RequestsPage />} />
           <Route path="/orders" element={<OrdersPage />} />

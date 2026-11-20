@@ -115,6 +115,26 @@ function ClientsPage() {
     ? requestedPageSize
     : DEFAULT_PAGE_SIZE;
   const searchText = searchParams.get('search') ?? '';
+  const [searchInputState, setSearchInputState] = useState({
+    value: searchText,
+    query: searchText,
+  });
+  const searchInput =
+    searchInputState.query === searchText ? searchInputState.value : searchText;
+
+  useEffect(() => {
+    if (searchInput === searchText) return;
+
+    const timeoutId = window.setTimeout(() => {
+      const nextParams = new URLSearchParams(searchParams);
+      if (searchInput.trim()) nextParams.set('search', searchInput);
+      else nextParams.delete('search');
+      nextParams.delete('page');
+      setSearchParams(nextParams, { replace: true });
+    }, 350);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [searchInput, searchParams, searchText, setSearchParams]);
 
   async function openCreateModal() {
     try {
@@ -399,14 +419,12 @@ function ClientsPage() {
           aria-label="Поиск клиентов"
           placeholder="Поиск по ФИО, телефону, email или паспорту"
           prefix={<SearchOutlined />}
-          value={searchText}
+          value={searchInput}
           onChange={(event) => {
-            const nextParams = new URLSearchParams(searchParams);
-            const search = event.target.value;
-            if (search.trim()) nextParams.set('search', search);
-            else nextParams.delete('search');
-            nextParams.delete('page');
-            setSearchParams(nextParams, { replace: true });
+            setSearchInputState({
+              value: event.target.value,
+              query: searchText,
+            });
           }}
           allowClear
           style={{ width: 420, maxWidth: '100%' }}

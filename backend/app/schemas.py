@@ -583,6 +583,7 @@ class EmployeeResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     is_active: bool
+    is_blocked: bool
 
 
 class EmployeeInviteResponse(BaseModel):

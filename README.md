@@ -83,13 +83,20 @@ been created, setup is permanently closed.
   sets HttpOnly `access_token` and `refresh_token` cookies.
 - `POST /api/auth/refresh` — rotate the refresh cookie and issue a new access cookie.
 - `POST /api/auth/logout` — revoke the refresh session and clear both cookies.
+- `GET /api/auth/me` — return the signed-in employee and role.
 - `POST /api/auth/activate` — accept `invite_token` and a password of at least 12
   characters; activate the invited employee and set both auth cookies.
+- `GET /api/admin/employees` — list employees for administrators and directors.
 - `GET /api/admin/roles` — list roles that the signed-in administrator may assign.
 - `POST /api/admin/employees` — register an employee without a password. The request
   contains `last_name`, `first_name`, optional `father_name`, `passport_number`,
   `login`, `email`, `phone`, and `role_id`. The response contains the employee
   and an `activation_url` with the one-time token.
+- `POST /api/admin/employees/{employee_id}/activation-link` — generate a replacement
+  activation link for an inactive employee, invalidating the previous link.
+- `POST /api/admin/employees/{employee_id}/block` — deactivate an employee, invalidate
+  their pending activation link, and revoke all their sessions. Directors cannot be
+  blocked; administrators and directors can only block employees with a lower role.
 
 An authenticated session cannot call `/api/auth/login`, `/api/auth/activate`, or
 `/api/auth/setup`; call `/api/auth/logout` first.

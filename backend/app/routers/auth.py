@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
-from ..auth_dependencies import get_active_refresh_session
+from ..auth_dependencies import get_active_refresh_session, get_current_employee
 from ..database import get_db
 from ..security import (
     ACCESS_TOKEN_MINUTES,
@@ -27,6 +27,13 @@ from ..security import (
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 _ACCESS_COOKIE = "access_token"
 _REFRESH_COOKIE = "refresh_token"
+
+
+@router.get("/me", response_model=schemas.EmployeeResponse)
+def read_current_employee(
+    employee: models.Employee = Depends(get_current_employee),
+):
+    return employee
 
 
 def _set_auth_cookies(

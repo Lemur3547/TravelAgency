@@ -99,6 +99,10 @@ class Employee(Base):
     is_active = Column(Boolean, nullable=False, default=False)
     invite_token = Column(String(64), nullable=True, unique=True)
 
+    @property
+    def is_blocked(self):
+        return not self.is_active and self.invite_token is None
+
     role = relationship("Role", back_populates="employees")
     refresh_sessions = relationship(
         "EmployeeRefreshSession",
