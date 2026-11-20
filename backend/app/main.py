@@ -7,6 +7,7 @@ from .routers.destinations import router as destinations_router
 from .routers.departures import router as departures_router
 from .routers.auth import router as auth_router
 from .routers.employees import router as employees_router
+from .routers.orders import router as orders_router
 from .routers.tour_operators import router as tour_operators_router
 from .routers.tours import router as tours_router
 
@@ -33,6 +34,7 @@ app.include_router(destinations_router)
 app.include_router(departures_router)
 app.include_router(tour_operators_router)
 app.include_router(tours_router)
+app.include_router(orders_router)
 app.include_router(auth_router)
 app.include_router(employees_router)
 

@@ -275,6 +275,60 @@ class ClientRequestResponse(ClientRequestFields):
     updated_at: datetime
 
 
+class OrderCreate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    request_id: int = Field(..., gt=0)
+    client_id: int = Field(..., gt=0)
+    tour_id: int = Field(..., gt=0)
+    note: Optional[str] = Field(None, max_length=5000)
+
+
+OrderStatus = Literal["Новый", "В работе", "Подтверждён", "Завершён", "Отменён"]
+OrderPaymentStatus = Literal[
+    "Не оплачено", "Частично оплачено", "Оплачено", "Возврат"
+]
+
+
+class OrderUpdate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    request_id: Optional[int] = Field(None, gt=0)
+    client_id: Optional[int] = Field(None, gt=0)
+    tour_id: Optional[int] = Field(None, gt=0)
+    status: Optional[OrderStatus] = None
+    payment_status: Optional[OrderPaymentStatus] = None
+    note: Optional[str] = Field(None, max_length=5000)
+
+    @model_validator(mode="after")
+    def require_update_fields(self):
+        if not self.model_fields_set:
+            raise ValueError("Укажите хотя бы одно поле для изменения")
+        return self
+
+
+class OrderResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    request_id: int
+    client_id: int
+    client_name: str
+    employee_id: int
+    employee_name: str
+    tour_id: int
+    tour_title: str
+    client_price: Decimal
+    commission_percent: Decimal
+    agency_price: Decimal
+    agency_commission: Decimal
+    status: str
+    payment_status: str
+    note: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+
+
 class TourOperatorBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=50)
     legal_name: str = Field(..., min_length=1, max_length=255)

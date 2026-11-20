@@ -438,3 +438,82 @@ def update_client_request(
 def delete_client_request(db: Session, db_request: models.ClientRequest) -> None:
     db.delete(db_request)
     db.commit()
+
+
+def get_orders(db: Session) -> List[models.Order]:
+    return (
+        db.query(models.Order)
+        .options(
+            joinedload(models.Order.client),
+            joinedload(models.Order.employee),
+            joinedload(models.Order.tour),
+        )
+        .order_by(models.Order.created_at.desc(), models.Order.id.desc())
+        .all()
+    )
+
+
+def get_order(db: Session, order_id: int) -> Optional[models.Order]:
+    return (
+        db.query(models.Order)
+        .options(
+            joinedload(models.Order.client),
+            joinedload(models.Order.employee),
+            joinedload(models.Order.tour),
+        )
+        .filter(models.Order.id == order_id)
+        .first()
+    )
+
+
+def create_order(
+    db: Session,
+    order: schemas.OrderCreate,
+    employee_id: int,
+) -> models.Order:
+    tour = db.get(models.Tour, order.tour_id)
+    if tour is None:
+        raise ValueError("Тур не найден")
+
+    db_order = models.Order(
+        request_id=order.request_id,
+        client_id=order.client_id,
+        employee_id=employee_id,
+        tour_id=tour.id,
+        client_price=tour.client_price,
+        commission_percent=tour.commission_percent,
+        agency_price=tour.agency_price,
+        agency_commission=tour.agency_commission,
+        note=order.note or None,
+    )
+    db.add(db_order)
+    db.commit()
+    db.refresh(db_order)
+    return db_order
+
+
+def update_order(
+    db: Session,
+    db_order: models.Order,
+    order_update: schemas.OrderUpdate,
+) -> models.Order:
+    update_data = order_update.model_dump(exclude_unset=True)
+    tour_id = update_data.get("tour_id", db_order.tour_id)
+    if tour_id != db_order.tour_id:
+        tour = db.get(models.Tour, tour_id)
+        if tour is None:
+            raise ValueError("Тур не найден")
+        db_order.client_price = tour.client_price
+        db_order.commission_percent = tour.commission_percent
+        db_order.agency_price = tour.agency_price
+        db_order.agency_commission = tour.agency_commission
+
+    for field, value in update_data.items():
+        setattr(db_order, field, value)
+    db.commit()
+    return get_order(db, db_order.id)
+
+
+def delete_order(db: Session, db_order: models.Order) -> None:
+    db.delete(db_order)
+    db.commit()

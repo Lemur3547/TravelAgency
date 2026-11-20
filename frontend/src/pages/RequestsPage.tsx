@@ -22,6 +22,7 @@ import {
 import {
   DeleteOutlined,
   EditOutlined,
+  ShoppingCartOutlined,
   LeftOutlined,
   PlusOutlined,
   RightOutlined,
@@ -29,6 +30,7 @@ import {
   SearchOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import { useNavigate } from 'react-router-dom';
 import dayjs, { type Dayjs } from 'dayjs';
 import 'dayjs/locale/ru';
 import { ClientForm } from '../components/ClientForm';
@@ -970,6 +972,7 @@ function NightsPicker({
 }
 
 function RequestsPage() {
+  const navigate = useNavigate();
   const [requests, setRequests] = useState<RequestRecord[]>([]);
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [departureCities, setDepartureCities] = useState<DepartureCity[]>([]);
@@ -1287,10 +1290,20 @@ function RequestsPage() {
     {
       title: 'Действия',
       key: 'actions',
-      width: 110,
+      width: 160,
       fixed: 'right',
       render: (_, request) => (
         <Space>
+          <Button
+            aria-label={`Оформить заказ по заявке ${request.id}`}
+            title="Оформить заказ"
+            icon={<ShoppingCartOutlined />}
+            onClick={() =>
+              navigate(
+                `/orders?requestId=${request.id}&clientId=${request.client_id}`,
+              )
+            }
+          />
           <Button
             aria-label={`Редактировать заявку ${request.id}`}
             icon={<EditOutlined />}

@@ -6,6 +6,7 @@ import {
   CompassOutlined,
   GlobalOutlined,
   LogoutOutlined,
+  ShoppingCartOutlined,
 } from '@ant-design/icons';
 
 const { Sider, Content } = Layout;
@@ -15,6 +16,7 @@ const pageTitles: Record<string, string> = {
   '/requests': 'Заявки клиентов',
   '/tour-operators': 'Туроператоры',
   '/tours': 'Туры',
+  '/orders': 'Заказы',
 };
 
 function MainLayout({
@@ -61,6 +63,11 @@ function MainLayout({
       key: 'tours',
       icon: <GlobalOutlined />,
       label: 'Туры',
+    },
+    {
+      key: 'orders',
+      icon: <ShoppingCartOutlined />,
+      label: 'Заказы',
     },
     {
       key: 'logout',
@@ -124,6 +131,8 @@ function MainLayout({
                   ? ['tours']
                   : location.pathname === '/requests'
                     ? ['requests']
+                        : location.pathname === '/orders'
+                          ? ['orders']
                   : []
           }
           mode="inline"
@@ -133,6 +142,7 @@ function MainLayout({
             if (key === 'requests') navigate('/requests');
             if (key === 'tour-operators') navigate('/tour-operators');
             if (key === 'tours') navigate('/tours');
+            if (key === 'orders') navigate('/orders');
             if (key === 'logout') void logout();
           }}
         />

@@ -101,5 +101,5 @@ def delete_client(client_id: int, db: Session = Depends(get_db)):
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Нельзя удалить клиента, у которого есть заявки",
+            detail="Нельзя удалить клиента, у которого есть заявки или заказы",
         ) from exc

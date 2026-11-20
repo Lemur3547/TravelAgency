@@ -74,4 +74,11 @@ def delete_tour(tour_id: int, db: Session = Depends(get_db)):
     db_tour = crud.get_tour(db, tour_id)
     if db_tour is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Тур не найден")
-    crud.delete_tour(db, db_tour)
+    try:
+        crud.delete_tour(db, db_tour)
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Нельзя удалить тур, по которому оформлен заказ",
+        ) from exc

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .. import crud, models, schemas
@@ -116,4 +117,11 @@ def delete_client_request(request_id: int, db: Session = Depends(get_db)):
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Заявка не найдена",
         )
-    crud.delete_client_request(db, db_request)
+    try:
+        crud.delete_client_request(db, db_request)
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Нельзя удалить заявку, по которой оформлен заказ",
+        ) from exc

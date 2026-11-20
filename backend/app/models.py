@@ -59,6 +59,7 @@ class Client(Base):
     )
 
     requests = relationship("ClientRequest", back_populates="client")
+    orders = relationship("Order", back_populates="client")
 
 
 class Role(Base):
@@ -105,6 +106,7 @@ class Employee(Base):
         cascade="all, delete-orphan",
     )
     requests = relationship("ClientRequest", back_populates="employee")
+    orders = relationship("Order", back_populates="employee")
 
 
 class EmployeeRefreshSession(Base):
@@ -192,6 +194,7 @@ class Tour(Base):
         Integer, ForeignKey("departure_cities.id"), nullable=False, index=True
     )
     departure = relationship("DepartureCity", back_populates="tours")
+    orders = relationship("Order", back_populates="tour")
     hotel_name = Column(String(255), nullable=False)
     room_type = Column(String(100), nullable=False)
     meal_type = Column(String(50), nullable=False)
@@ -244,6 +247,7 @@ class ClientRequest(Base):
     client = relationship("Client", back_populates="requests")
     employee = relationship("Employee", back_populates="requests")
     departure = relationship("DepartureCity")
+    orders = relationship("Order", back_populates="request")
 
     @property
     def departure_city(self):
@@ -272,3 +276,64 @@ class ClientRequest(Base):
                 self.employee.father_name,
             ) if part
         )
+
+
+class Order(Base):
+    __tablename__ = "orders"
+
+    id = Column(Integer, primary_key=True)
+    request_id = Column(
+        Integer, ForeignKey("client_requests.id"), nullable=False, index=True
+    )
+    client_id = Column(Integer, ForeignKey("clients.id"), nullable=False, index=True)
+    employee_id = Column(
+        Integer, ForeignKey("employees.id"), nullable=False, index=True
+    )
+    tour_id = Column(Integer, ForeignKey("tours.id"), nullable=False, index=True)
+    client_price = Column(Numeric(12, 2), nullable=False)
+    commission_percent = Column(Numeric(5, 2), nullable=False)
+    agency_price = Column(Numeric(12, 2), nullable=False)
+    agency_commission = Column(Numeric(12, 2), nullable=False)
+    status = Column(String(30), nullable=False, default="Новый")
+    payment_status = Column(String(30), nullable=False, default="Не оплачено")
+    note = Column(Text, nullable=True)
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.datetime.now(datetime.timezone.utc),
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.datetime.now(datetime.timezone.utc),
+        onupdate=lambda: datetime.datetime.now(datetime.timezone.utc),
+    )
+
+    request = relationship("ClientRequest", back_populates="orders")
+    client = relationship("Client", back_populates="orders")
+    employee = relationship("Employee", back_populates="orders")
+    tour = relationship("Tour", back_populates="orders")
+
+    @property
+    def client_name(self):
+        return " ".join(
+            part for part in (
+                self.client.last_name,
+                self.client.first_name,
+                self.client.father_name,
+            ) if part
+        )
+
+    @property
+    def employee_name(self):
+        return " ".join(
+            part for part in (
+                self.employee.last_name,
+                self.employee.first_name,
+                self.employee.father_name,
+            ) if part
+        )
+
+    @property
+    def tour_title(self):
+        return self.tour.title
