@@ -46,7 +46,7 @@ interface ClientPageResponse {
   total: number;
 }
 
-const PAGE_SIZE_OPTIONS = [1, 2, 10, 20, 50, 100];
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 const DEFAULT_PAGE_SIZE = 10;
 
 function isClientRecord(value: unknown): value is ClientRecord {

@@ -33,18 +33,41 @@ export interface ClientFormValues {
 function ClientDatePicker({
   value,
   onChange,
+  disabledDate,
+  minDate,
+  maxDate,
+  warnIfExpiring,
 }: {
   value?: string | null;
   onChange?: (value: string | null) => void;
+  disabledDate?: (date: Dayjs) => boolean;
+  minDate?: Dayjs;
+  maxDate?: Dayjs;
+  warnIfExpiring?: boolean;
 }) {
+  const selectedDate = value ? dayjs(value) : null;
+  const showExpiryWarning =
+    warnIfExpiring &&
+    selectedDate &&
+    !selectedDate.isBefore(dayjs().startOf('day'), 'day') &&
+    selectedDate.isBefore(dayjs().startOf('day').add(6, 'month'), 'day');
+
   return (
-    <DatePicker
-      format="DD.MM.YYYY"
-      placeholder="Выберите дату"
-      style={{ width: '100%' }}
-      value={value ? dayjs(value) : null}
-      onChange={(date: Dayjs | null) => onChange?.(date?.format('YYYY-MM-DD') ?? null)}
-    />
+    <div>
+      <DatePicker
+        format="DD.MM.YYYY"
+        placeholder="Выберите дату"
+        style={{ width: '100%' }}
+        value={value ? dayjs(value) : null}
+        disabledDate={disabledDate}
+        minDate={minDate}
+        maxDate={maxDate}
+        onChange={(date: Dayjs | null) => onChange?.(date?.format('YYYY-MM-DD') ?? null)}
+      />
+      {showExpiryWarning && (
+        <Typography.Text type="warning">Срок действия скоро истечет</Typography.Text>
+      )}
+    </div>
   );
 }
 
@@ -132,6 +155,10 @@ export function ClientForm({
   onFinish: (values: ClientFormValues) => void;
 }) {
   const [expandedPanels, setExpandedPanels] = useState<string[]>([]);
+  const today = dayjs().startOf('day');
+  const earliestBirthDate = today.subtract(100, 'year');
+  const earliestPassportExpiry = today.subtract(10, 'year');
+  const latestPassportExpiry = today.add(10, 'year');
 
   function revealInvalidDocumentFields({
     errorFields,
@@ -253,6 +280,7 @@ export function ClientForm({
             {
               key: 'passport',
               label: 'Паспортные данные',
+              forceRender: true,
               children: (
                 <Row gutter={16}>
                   <Col span={12}>
@@ -273,7 +301,14 @@ export function ClientForm({
                   </Col>
                   <Col span={12}>
                     <Form.Item name="birth_date" label="Дата рождения">
-                      <ClientDatePicker />
+                      <ClientDatePicker
+                        minDate={earliestBirthDate}
+                        maxDate={today}
+                        disabledDate={(date) =>
+                          date.isBefore(earliestBirthDate, 'day') ||
+                          date.isAfter(today, 'day')
+                        }
+                      />
                     </Form.Item>
                   </Col>
                 </Row>
@@ -282,6 +317,7 @@ export function ClientForm({
             {
               key: 'foreign-passport',
               label: 'Загранпаспорт',
+              forceRender: true,
               children: (
                 <Row gutter={16}>
                   <Col span={12}>
@@ -332,8 +368,27 @@ export function ClientForm({
                     <Form.Item
                       name="foreign_passport_expire_date"
                       label="Срок действия"
+                      validateTrigger="onChange"
+                      rules={[
+                        {
+                          validator: (_, value: string | null | undefined) =>
+                            !value || !dayjs(value).isBefore(today, 'day')
+                              ? Promise.resolve()
+                              : Promise.reject(
+                                  new Error('Срок действия загранпаспорта истек'),
+                                ),
+                        },
+                      ]}
                     >
-                      <ClientDatePicker />
+                      <ClientDatePicker
+                        minDate={earliestPassportExpiry}
+                        maxDate={latestPassportExpiry}
+                        disabledDate={(date) =>
+                          date.isBefore(earliestPassportExpiry, 'day') ||
+                          date.isAfter(latestPassportExpiry, 'day')
+                        }
+                        warnIfExpiring
+                      />
                     </Form.Item>
                   </Col>
                 </Row>
